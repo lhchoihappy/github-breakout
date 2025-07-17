@@ -1,16 +1,15 @@
 // Configuration
-const canvasWidth = 812; // Canvas width in pixels
-const canvasHeight = 200; // Canvas height in pixels
 const paddleWidth = 75; // Paddle width in pixels
 const paddleHeight = 10; // Paddle height in pixels
 const paddleRadius = 5; // Paddle corner radius in pixels
+const paddleBrickGap = 100; // Gap between the last row of bricks and the paddle in pixels
+
 const ballRadius = 8; // Ball radius in pixels
-const brickRowCount = 7; // Number of rows of bricks
-const brickColumnCount = 53; // Number of columns of bricks (at most 53 weeks in a year)
+
 const brickSize = 12; // Brick size in pixels
 const brickGap = 3; // Gap between bricks in pixels
 const brickRadius = 3; // Radius for rounded corners of bricks
-const brickOffsetTop = 25; // Offset from the top of the canvas for the first row of bricks
+const brickOffsetTop = 10; // Offset from the top of the canvas for the first row of bricks
 const brickOffsetLeft = 10; // Offset from the left of the canvas for the first column of bricks
 
 const animateStep = 1; // Step size for animation frames
@@ -53,6 +52,7 @@ type FrameState = {
   paddleX: number; // Paddle x position
   bricks: BrickStatus[]; // Array of brick statuses (visible or hidden)
 };
+
 /**
  * Fetches the GitHub contributions calendar for a user using the GraphQL API.
  *
@@ -100,7 +100,7 @@ async function fetchGithubContributionsGraphQL(
     throw new Error("GitHub GraphQL error: " + JSON.stringify(json.errors));
   }
 
-  // Format the contribution days into a 2D array of colors
+  // Format the contribution days into a 2D array of colors (weeks x days)
   const weeks =
     json.data.user.contributionsCollection.contributionCalendar.weeks;
   const colors: (string | null)[][] = [];
@@ -146,9 +146,17 @@ function circleRectCollision(
  * Simulates the movement of the ball, paddle, and bricks for a breakout-style game.
  *
  * @param bricks - The initial array of bricks to simulate.
+ * @param canvasWidth - The width of the canvas.
+ * @param canvasHeight - The height of the canvas.
+ * @param paddleY - The vertical position of the paddle.
  * @returns An array of frame states representing the simulation history.
  */
-function simulate(bricks: Brick[]): FrameState[] {
+function simulate(
+  bricks: Brick[],
+  canvasWidth: number,
+  canvasHeight: number,
+  paddleY: number,
+): FrameState[] {
   // Initialize ball position at the center bottom of the canvas
   let ballX = canvasWidth / 2;
   let ballY = canvasHeight - 30;
@@ -158,7 +166,7 @@ function simulate(bricks: Brick[]): FrameState[] {
   let ballVelocityX = ballSpeed * Math.cos(launchAngle);
   let ballVelocityY = ballSpeed * Math.sin(launchAngle);
 
-  // Create a copy of the bricks array to simulate on
+  // Create a copy of the bricks' array to simulate on
   const simulatedBricks: Brick[] = bricks.map((brick) => ({ ...brick }));
 
   // Array to store the state of each frame
@@ -197,11 +205,15 @@ function simulate(bricks: Brick[]): FrameState[] {
     }
 
     // Ball collision with paddle
-    if (ballY + ballVelocityY > canvasHeight - ballRadius - paddleHeight) {
-      if (ballVelocityY > 0) {
-        ballVelocityY = -Math.abs(ballVelocityY);
-        ballY = canvasHeight - ballRadius - paddleHeight;
-      }
+    const ballNextBottom = ballY + ballVelocityY + ballRadius;
+    if (
+      ballVelocityY > 0 &&
+      ballNextBottom >= paddleY &&
+      ballY + ballRadius <= paddleY // was above paddle
+    ) {
+      ballVelocityY = -Math.abs(ballVelocityY);
+      // Place the ball just at the paddle edge to prevent overlap
+      ballY = paddleY - ballRadius;
     }
 
     // Ball collision with bricks
@@ -281,10 +293,28 @@ export async function generateSVG(
 ): Promise<string> {
   const colors = await fetchGithubContributionsGraphQL(username, githubToken);
 
+  // The number of columns (weeks) is determined by the API response
+  const brickColumnCount = colors.length;
+
+  // Calculate canvasWidth and canvasHeight dynamically
+  const canvasWidth =
+    brickColumnCount * (brickSize + brickGap) + brickOffsetLeft * 2 - brickGap; // right edge flush
+
+  // Bricks area height
+  const bricksTotalHeight = 7 * (brickSize + brickGap) - brickGap;
+
+  // Calculate the vertical position of the paddle
+  // The paddle sits below the last row of bricks plus the user-specified gap
+  const paddleY = brickOffsetTop + bricksTotalHeight + paddleBrickGap;
+
+  // Calculate the total canvas height
+  // The ball and paddle should have enough space at the bottom (add a little margin)
+  const canvasHeight = paddleY + paddleHeight + ballRadius + 10;
+
   // Build bricks with correct color (API color for light, mapped for dark), skip missing days (null color)
   const bricks: Brick[] = [];
   for (let c = 0; c < brickColumnCount; c++) {
-    for (let r = 0; r < brickRowCount; r++) {
+    for (let r = 0; r < 7; r++) {
       let dayColor = (colors[c] && colors[c][r]) || null;
       if (!dayColor) {
         continue; // skip bricks for missing days
@@ -303,7 +333,7 @@ export async function generateSVG(
   }
 
   // Run the simulation
-  const states = simulate(bricks);
+  const states = simulate(bricks, canvasWidth, canvasHeight, paddleY);
   const animationDuration = states.length * secondsPerFrame * animateStep;
 
   // Extract the X positions of the ball from each state
@@ -361,7 +391,7 @@ export async function generateSVG(
       </rect>`;
     })
     .join("")}
-  <rect y="${canvasHeight - paddleHeight}" width="${paddleWidth}" height="${paddleHeight}" rx="${paddleRadius}" fill="#1F6FEB">
+  <rect y="${paddleY}" width="${paddleWidth}" height="${paddleHeight}" rx="${paddleRadius}" fill="#1F6FEB">
     <!-- Animate paddle X position -->
     <animate attributeName="x" values="${getAnimValues(paddleX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
   </rect>
