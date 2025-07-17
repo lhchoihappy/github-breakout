@@ -11,9 +11,9 @@ const prettierRecommended = require("eslint-plugin-prettier").configs
   .recommended;
 
 module.exports = [
+  { ignores: ["node_modules", "dist"] },
   {
     files: ["**/*.ts", "**/*.js"],
-    ignores: ["node_modules", "dist"],
     languageOptions: {
       parser: tsParser,
       parserOptions: {
