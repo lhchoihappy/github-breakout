@@ -2,6 +2,10 @@ name: "generate-breakout-game-from-github-contribution-graph"
 description: "Generate a Breakout game svg from github contribution graph"
 author: "cyprieng"
 
+branding:
+  icon: "image"
+  color: "green"
+
 inputs:
   github_username:
     description: "Github username"
