@@ -19,20 +19,20 @@ const ballSpeed = 10; // Speed of the ball in pixels per frame
 
 // GitHub contribution graph green palettes
 const githubGreensDark = [
-  "#161b22",
-  "#0e4429",
-  "#006d32",
-  "#26a641",
-  "#39d353",
+  "#151B23",
+  "#033A16",
+  "#196C2E",
+  "#2EA043",
+  "#56D364",
 ];
 
 // Map from light palette color to dark palette color (the GraphQL API returns light colors and does not handle dark mode)
 const lightToDarkColorMap: Record<string, string> = {
-  "#ebedf0": "#161b22",
-  "#9be9a8": "#0e4429",
-  "#40c463": "#006d32",
-  "#30a14e": "#26a641",
-  "#216e39": "#39d353",
+  "#ebedf0": "#151B23",
+  "#9be9a8": "#033A16",
+  "#40c463": "#196C2E",
+  "#30a14e": "#2EA043",
+  "#216e39": "#56D364",
 };
 
 type BrickStatus = "visible" | "hidden";
