@@ -11,6 +11,7 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateSVG = generateSVG;
 // Configuration
+const padding = 15; // Padding around the canvas in pixels
 const paddleWidth = 75; // Paddle width in pixels
 const paddleHeight = 10; // Paddle height in pixels
 const paddleRadius = 5; // Paddle corner radius in pixels
@@ -19,8 +20,6 @@ const ballRadius = 8; // Ball radius in pixels
 const brickSize = 12; // Brick size in pixels
 const brickGap = 3; // Gap between bricks in pixels
 const brickRadius = 3; // Radius for rounded corners of bricks
-const brickOffsetTop = 10; // Offset from the top of the canvas for the first row of bricks
-const brickOffsetLeft = 10; // Offset from the left of the canvas for the first column of bricks
 const animateStep = 1; // Step size for animation frames
 const secondsPerFrame = 1 / 30; // Duration of each frame in seconds (30 FPS)
 const maxFrames = 30000; // Maximum number of frames to simulate
@@ -142,18 +141,18 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY) {
     // Main simulation loop
     while (simulatedBricks.some((brick) => brick.status === "visible") &&
         currentFrame < maxFrames) {
-        // Move paddle to follow the ball, clamped within canvas bounds
-        paddlePositionX = Math.max(0, Math.min(canvasWidth - paddleWidth, ballX - paddleWidth / 2));
+        // Move paddle to follow the ball, clamped within canvas bounds (respect padding)
+        paddlePositionX = Math.max(padding, Math.min(canvasWidth - padding - paddleWidth, ballX - paddleWidth / 2));
         // Update ball position
         ballX += ballVelocityX;
         ballY += ballVelocityY;
-        // Ball collision with left or right wall
-        if (ballX + ballVelocityX > canvasWidth - ballRadius ||
-            ballX + ballVelocityX < ballRadius) {
+        // Ball collision with left or right wall (respect padding)
+        if (ballX + ballVelocityX > canvasWidth - padding - ballRadius ||
+            ballX + ballVelocityX < padding + ballRadius) {
             ballVelocityX = -ballVelocityX;
         }
-        // Ball collision with top wall
-        if (ballY + ballVelocityY < ballRadius) {
+        // Ball collision with top wall (respect padding)
+        if (ballY + ballVelocityY < padding + ballRadius) {
             ballVelocityY = -ballVelocityY;
         }
         // Ball collision with paddle
@@ -176,6 +175,9 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY) {
                 break;
             }
         }
+        // Prevent the ball from entering the padding on all sides
+        ballX = Math.max(padding + ballRadius, Math.min(canvasWidth - padding - ballRadius, ballX));
+        ballY = Math.max(padding + ballRadius, Math.min(canvasHeight - padding - ballRadius, ballY));
         // Store the frame state at each animateStep interval
         if (currentFrame % animateStep === 0) {
             frameHistory.push({
@@ -226,15 +228,15 @@ function generateSVG(username_1, githubToken_1) {
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colors.length;
         // Calculate canvasWidth and canvasHeight dynamically
-        const canvasWidth = brickColumnCount * (brickSize + brickGap) + brickOffsetLeft * 2 - brickGap; // right edge flush
+        const canvasWidth = brickColumnCount * (brickSize + brickGap) + padding * 2 - brickGap; // right edge flush
         // Bricks area height
         const bricksTotalHeight = 7 * (brickSize + brickGap) - brickGap;
         // Calculate the vertical position of the paddle
         // The paddle sits below the last row of bricks plus the user-specified gap
-        const paddleY = brickOffsetTop + bricksTotalHeight + paddleBrickGap;
+        const paddleY = padding + bricksTotalHeight + paddleBrickGap;
         // Calculate the total canvas height
         // The ball and paddle should have enough space at the bottom (add a little margin)
-        const canvasHeight = paddleY + paddleHeight + ballRadius + 10;
+        const canvasHeight = paddleY + paddleHeight + padding;
         // Build bricks with correct color (API color for light, mapped for dark), skip missing days (null color)
         const bricks = [];
         for (let c = 0; c < brickColumnCount; c++) {
@@ -248,8 +250,8 @@ function generateSVG(username_1, githubToken_1) {
                         lightToDarkColorMap[dayColor.toLowerCase()] || githubGreensDark[0];
                 }
                 bricks.push({
-                    x: c * (brickSize + brickGap) + brickOffsetLeft,
-                    y: r * (brickSize + brickGap) + brickOffsetTop,
+                    x: c * (brickSize + brickGap) + padding,
+                    y: r * (brickSize + brickGap) + padding,
                     color: dayColor,
                     status: "visible",
                 });
