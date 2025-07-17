@@ -21,7 +21,7 @@ runs:
     - uses: actions/setup-node@v4
       with:
         node-version: 23
-    - run: npm ci
+    - run: npm install
       shell: bash
     - run: mkdir -p output
       shell: bash
