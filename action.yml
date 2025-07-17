@@ -16,16 +16,5 @@ inputs:
     default: ${{ github.token }}
 
 runs:
-  using: "composite"
-  steps:
-    - uses: actions/setup-node@v4
-      with:
-        node-version: 23
-    - run: npm install
-      shell: bash
-    - run: mkdir -p output
-      shell: bash
-    - run: npx ts-node src/cli.ts "${{ inputs.github_username }}" "${{ inputs.github_token }}" light > output/light.svg
-      shell: bash
-    - run: npx ts-node src/cli.ts "${{ inputs.github_username }}" "${{ inputs.github_token }}" dark > output/dark.svg
-      shell: bash
+  using: node20
+  main: dist/cli.js

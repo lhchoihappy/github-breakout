@@ -1,26 +1,39 @@
 import { generateSVG } from "./svg";
+import * as fs from "fs";
+import * as path from "path";
 
-// Get the GitHub username from command line arguments
-const username = process.argv[2];
-
-// Get the GitHub token from command line arguments or environment variable
+// Get the GitHub username and token from command line arguments or environment variables
+const username = process.argv[2] || process.env.GITHUB_USERNAME;
 const token = process.argv[3] || process.env.GITHUB_TOKEN;
 
-// Get the mode (dark or light) from command line arguments or use 'light' as default
-const mode = process.argv[4] || "light";
-
 // If no token or username is provided, print usage and exit
-if (!token || !username) {
+if (!username || !token) {
   console.error(
-    "Usage: node test-svg.js <github-username> <github-token> [dark|light]",
+    "Usage: node cli.js <github-username> <github-token>\n" +
+      "Or set GITHUB_USERNAME and GITHUB_TOKEN as environment variables.",
   );
   process.exit(1);
 }
 
-// Call generateSVG and handle the result or any errors
-generateSVG(username, token, mode === "dark")
-  .then((svg) => console.log(svg))
+// Ensure output directory exists
+const outDir = path.join(process.cwd(), "output");
+if (!fs.existsSync(outDir)) {
+  fs.mkdirSync(outDir, { recursive: true });
+}
+
+// Generate both light and dark SVGs
+Promise.all([
+  generateSVG(username, token, false).then((svg) =>
+    fs.writeFileSync(path.join(outDir, "light.svg"), svg),
+  ),
+  generateSVG(username, token, true).then((svg) =>
+    fs.writeFileSync(path.join(outDir, "dark.svg"), svg),
+  ),
+])
+  .then(() => {
+    console.log("SVGs generated: output/light.svg, output/dark.svg");
+  })
   .catch((err) => {
-    console.error("Failed to generate SVG:", err);
+    console.error("Failed to generate SVGs:", err);
     process.exit(1);
   });
