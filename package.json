@@ -4,7 +4,9 @@
   "description": "Generate a Breakout game svg from github contribution graph",
   "main": "src/index.js",
   "scripts": {
-    "lint": "eslint . --ext .ts,.js"
+    "lint": "eslint . --ext .ts,.js",
+    "build": "tsc",
+    "prepare": "husky install"
   },
   "devDependencies": {
     "@types/node": "^24.0.14",
@@ -13,6 +15,7 @@
     "eslint": "^9.31.0",
     "eslint-config-prettier": "^10.1.5",
     "eslint-plugin-prettier": "^5.5.1",
+    "husky": "^9.1.7",
     "prettier": "^3.6.2",
     "typescript": "^5.8.3"
   },

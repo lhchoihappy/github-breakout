@@ -1,0 +1,311 @@
+"use strict";
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.generateSVG = generateSVG;
+// Configuration
+const canvasWidth = 812; // Canvas width in pixels
+const canvasHeight = 200; // Canvas height in pixels
+const paddleWidth = 75; // Paddle width in pixels
+const paddleHeight = 10; // Paddle height in pixels
+const paddleRadius = 5; // Paddle corner radius in pixels
+const ballRadius = 8; // Ball radius in pixels
+const brickRowCount = 7; // Number of rows of bricks
+const brickColumnCount = 53; // Number of columns of bricks (at most 53 weeks in a year)
+const brickSize = 12; // Brick size in pixels
+const brickGap = 3; // Gap between bricks in pixels
+const brickRadius = 3; // Radius for rounded corners of bricks
+const brickOffsetTop = 25; // Offset from the top of the canvas for the first row of bricks
+const brickOffsetLeft = 10; // Offset from the left of the canvas for the first column of bricks
+const animateStep = 1; // Step size for animation frames
+const secondsPerFrame = 1 / 30; // Duration of each frame in seconds (30 FPS)
+const maxFrames = 30000; // Maximum number of frames to simulate
+const ballSpeed = 10; // Speed of the ball in pixels per frame
+// GitHub contribution graph green palettes
+const githubGreensDark = [
+    "#161b22",
+    "#0e4429",
+    "#006d32",
+    "#26a641",
+    "#39d353",
+];
+// Map from light palette color to dark palette color (the GraphQL API returns light colors and does not handle dark mode)
+const lightToDarkColorMap = {
+    "#ebedf0": "#161b22",
+    "#9be9a8": "#0e4429",
+    "#40c463": "#006d32",
+    "#30a14e": "#26a641",
+    "#216e39": "#39d353",
+};
+/**
+ * Fetches the GitHub contributions calendar for a user using the GraphQL API.
+ *
+ * @param userName - The GitHub username to fetch contributions for.
+ * @param githubToken - A GitHub personal access token with appropriate permissions.
+ * @returns A 2D array representing weeks and days, where each element contains the color string or null.
+ * @throws Will throw an error if the API request fails or returns errors.
+ */
+function fetchGithubContributionsGraphQL(userName, githubToken) {
+    return __awaiter(this, void 0, void 0, function* () {
+        const query = `
+    query($userName:String!) {
+      user(login: $userName){
+        contributionsCollection {
+          contributionCalendar {
+            weeks {
+              contributionDays {
+                color
+              }
+            }
+          }
+        }
+      }
+    }`;
+        const res = yield fetch("https://api.github.com/graphql", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                Authorization: `bearer ${githubToken}`,
+            },
+            body: JSON.stringify({
+                query,
+                variables: { userName },
+            }),
+        });
+        if (!res.ok) {
+            throw new Error(`GitHub API error: ${res.status} ${res.statusText}`);
+        }
+        const json = yield res.json();
+        if (json.errors) {
+            throw new Error("GitHub GraphQL error: " + JSON.stringify(json.errors));
+        }
+        // Format the contribution days into a 2D array of colors
+        const weeks = json.data.user.contributionsCollection.contributionCalendar.weeks;
+        const colors = [];
+        for (let c = 0; c < weeks.length; c++) {
+            colors[c] = [];
+            const days = weeks[c].contributionDays;
+            for (let r = 0; r < days.length; r++) {
+                colors[c][r] = days[r].color;
+            }
+        }
+        return colors;
+    });
+}
+/**
+ * Checks if a circle and a rectangle are colliding.
+ *
+ * @param circleX - The x-coordinate of the circle's center.
+ * @param circleY - The y-coordinate of the circle's center.
+ * @param circleRadius - The radius of the circle.
+ * @param rectX - The x-coordinate of the rectangle's top-left corner.
+ * @param rectY - The y-coordinate of the rectangle's top-left corner.
+ * @param rectWidth - The width of the rectangle.
+ * @param rectHeight - The height of the rectangle.
+ * @returns True if the circle and rectangle are colliding, false otherwise.
+ */
+function circleRectCollision(circleX, circleY, circleRadius, rectX, rectY, rectWidth, rectHeight) {
+    const closestX = Math.max(rectX, Math.min(circleX, rectX + rectWidth));
+    const closestY = Math.max(rectY, Math.min(circleY, rectY + rectHeight));
+    const dx = circleX - closestX;
+    const dy = circleY - closestY;
+    return dx * dx + dy * dy <= circleRadius * circleRadius;
+}
+/**
+ * Simulates the movement of the ball, paddle, and bricks for a breakout-style game.
+ *
+ * @param bricks - The initial array of bricks to simulate.
+ * @returns An array of frame states representing the simulation history.
+ */
+function simulate(bricks) {
+    // Initialize ball position at the center bottom of the canvas
+    let ballX = canvasWidth / 2;
+    let ballY = canvasHeight - 30;
+    // Set the initial launch angle and calculate velocity components
+    let launchAngle = -Math.PI / 4;
+    let ballVelocityX = ballSpeed * Math.cos(launchAngle);
+    let ballVelocityY = ballSpeed * Math.sin(launchAngle);
+    // Create a copy of the bricks array to simulate on
+    const simulatedBricks = bricks.map((brick) => (Object.assign({}, brick)));
+    // Array to store the state of each frame
+    const frameHistory = [];
+    let currentFrame = 0;
+    // Initialize paddle position at the center
+    let paddlePositionX = (canvasWidth - paddleWidth) / 2;
+    // Main simulation loop
+    while (simulatedBricks.some((brick) => brick.status === "visible") &&
+        currentFrame < maxFrames) {
+        // Move paddle to follow the ball, clamped within canvas bounds
+        paddlePositionX = Math.max(0, Math.min(canvasWidth - paddleWidth, ballX - paddleWidth / 2));
+        // Update ball position
+        ballX += ballVelocityX;
+        ballY += ballVelocityY;
+        // Ball collision with left or right wall
+        if (ballX + ballVelocityX > canvasWidth - ballRadius ||
+            ballX + ballVelocityX < ballRadius) {
+            ballVelocityX = -ballVelocityX;
+        }
+        // Ball collision with top wall
+        if (ballY + ballVelocityY < ballRadius) {
+            ballVelocityY = -ballVelocityY;
+        }
+        // Ball collision with paddle
+        if (ballY + ballVelocityY > canvasHeight - ballRadius - paddleHeight) {
+            if (ballVelocityY > 0) {
+                ballVelocityY = -Math.abs(ballVelocityY);
+                ballY = canvasHeight - ballRadius - paddleHeight;
+            }
+        }
+        // Ball collision with bricks
+        for (let i = 0; i < simulatedBricks.length; i++) {
+            const brick = simulatedBricks[i];
+            if (brick.status === "visible" &&
+                circleRectCollision(ballX, ballY, ballRadius, brick.x, brick.y, brickSize, brickSize)) {
+                ballVelocityY = -ballVelocityY;
+                brick.status = "hidden";
+                break;
+            }
+        }
+        // Store the frame state at each animateStep interval
+        if (currentFrame % animateStep === 0) {
+            frameHistory.push({
+                ballX: ballX,
+                ballY: ballY,
+                paddleX: paddlePositionX,
+                bricks: simulatedBricks.map((brick) => brick.status),
+            });
+        }
+        currentFrame++;
+    }
+    // Return the history of all frames
+    return frameHistory;
+}
+/**
+ * Converts an array of numbers to a semicolon-separated string with each number formatted to one decimal place.
+ * It's used to create the values for SVG animations.
+ *
+ * @param arr - The array of numbers to format.
+ * @returns The formatted string of numbers separated by semicolons.
+ */
+function getAnimValues(arr) {
+    return arr.map((v) => v.toFixed(1)).join(";");
+}
+/**
+ * Minifies an SVG string by removing unnecessary whitespace, line breaks, and spaces between tags.
+ *
+ * @param svg - The SVG string to minify.
+ * @returns The minified SVG string.
+ */
+function minifySVG(svg) {
+    return svg
+        .replace(/\s{2,}/g, " ")
+        .replace(/>\s+</g, "><")
+        .replace(/\n/g, "");
+}
+/**
+ * Generates a minified SVG string representing a GitHub contributions as a Breakout game animation.
+ *
+ * @param username - The GitHub username to fetch contributions for.
+ * @param githubToken - The GitHub token used for authentication.
+ * @param [darkMode=false] - Whether to use dark mode.
+ * @returns A promise that resolves to the minified SVG string.
+ */
+function generateSVG(username_1, githubToken_1) {
+    return __awaiter(this, arguments, void 0, function* (username, githubToken, darkMode = false) {
+        const colors = yield fetchGithubContributionsGraphQL(username, githubToken);
+        // Build bricks with correct color (API color for light, mapped for dark), skip missing days (null color)
+        const bricks = [];
+        for (let c = 0; c < brickColumnCount; c++) {
+            for (let r = 0; r < brickRowCount; r++) {
+                let dayColor = (colors[c] && colors[c][r]) || null;
+                if (!dayColor) {
+                    continue; // skip bricks for missing days
+                }
+                if (darkMode) {
+                    dayColor =
+                        lightToDarkColorMap[dayColor.toLowerCase()] || githubGreensDark[0];
+                }
+                bricks.push({
+                    x: c * (brickSize + brickGap) + brickOffsetLeft,
+                    y: r * (brickSize + brickGap) + brickOffsetTop,
+                    color: dayColor,
+                    status: "visible",
+                });
+            }
+        }
+        // Run the simulation
+        const states = simulate(bricks);
+        const animationDuration = states.length * secondsPerFrame * animateStep;
+        // Extract the X positions of the ball from each state
+        const ballX = states.map((s) => s.ballX);
+        // Extract the Y positions of the ball from each state
+        const ballY = states.map((s) => s.ballY);
+        // Extract the X positions of the paddle from each state
+        const paddleX = states.map((s) => s.paddleX);
+        // Prepare animation data for each brick
+        const brickAnimData = bricks.map((_, i) => {
+            let firstZero = -1;
+            // Find the first frame where the brick is not visible
+            for (let f = 0; f < states.length; ++f) {
+                if (states[f].bricks[i] !== "visible") {
+                    firstZero = f;
+                    break;
+                }
+            }
+            if (firstZero === -1) {
+                // Brick is always visible
+                return { animate: false, opacity: 1 };
+            }
+            else {
+                // Brick disappears at frame firstZero
+                const t = firstZero / (states.length - 1);
+                const keyTimes = `0;${t.toFixed(4)};${t.toFixed(4)};1`;
+                const values = "1;1;0;0";
+                return { animate: true, keyTimes, values };
+            }
+        });
+        // Generate keyTimes string for animation steps
+        const keyTimes = Array.from({ length: states.length }, (_, i) => (i / (states.length - 1)).toFixed(4)).join(";");
+        // Build the SVG string with animated bricks, paddle, and ball
+        const svg = `
+<svg width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
+  ${bricks
+            .map((brick, i) => {
+            const anim = brickAnimData[i];
+            if (!anim.animate) {
+                // Static brick (never disappears)
+                return `<rect x="${brick.x}" y="${brick.y}" width="${brickSize}" height="${brickSize}" rx="${brickRadius}" fill="${brick.color}" opacity="1"/>`;
+            }
+            // Animated brick (disappears at some point)
+            return `<rect x="${brick.x}" y="${brick.y}" width="${brickSize}" height="${brickSize}" rx="${brickRadius}" fill="${brick.color}">
+        <animate attributeName="opacity"
+          values="${anim.values}"
+          keyTimes="${anim.keyTimes}"
+          dur="${animationDuration}s"
+          fill="freeze"
+          repeatCount="indefinite"/>
+      </rect>`;
+        })
+            .join("")}
+  <rect y="${canvasHeight - paddleHeight}" width="${paddleWidth}" height="${paddleHeight}" rx="${paddleRadius}" fill="#1F6FEB">
+    <!-- Animate paddle X position -->
+    <animate attributeName="x" values="${getAnimValues(paddleX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
+  </rect>
+  <circle r="${ballRadius}" fill="#1F6FEB">
+    <!-- Animate ball X and Y positions -->
+    <animate attributeName="cx" values="${getAnimValues(ballX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="${getAnimValues(ballY)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
+  </circle>
+</svg>
+    `.trim();
+        // Minify and return the SVG string
+        return minifySVG(svg);
+    });
+}
