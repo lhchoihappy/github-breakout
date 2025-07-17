@@ -19,13 +19,6 @@ const maxFrames = 30000; // Maximum number of frames to simulate
 const ballSpeed = 10; // Speed of the ball in pixels per frame
 
 // GitHub contribution graph green palettes
-const githubGreensLight = [
-  "#ebedf0",
-  "#9be9a8",
-  "#40c463",
-  "#30a14e",
-  "#216e39",
-];
 const githubGreensDark = [
   "#161b22",
   "#0e4429",
@@ -124,14 +117,14 @@ async function fetchGithubContributionsGraphQL(
 /**
  * Checks if a circle and a rectangle are colliding.
  *
- * @param {number} circleX - The x-coordinate of the circle's center.
- * @param {number} circleY - The y-coordinate of the circle's center.
- * @param {number} circleRadius - The radius of the circle.
- * @param {number} rectX - The x-coordinate of the rectangle's top-left corner.
- * @param {number} rectY - The y-coordinate of the rectangle's top-left corner.
- * @param {number} rectWidth - The width of the rectangle.
- * @param {number} rectHeight - The height of the rectangle.
- * @returns {boolean} True if the circle and rectangle are colliding, false otherwise.
+ * @param circleX - The x-coordinate of the circle's center.
+ * @param circleY - The y-coordinate of the circle's center.
+ * @param circleRadius - The radius of the circle.
+ * @param rectX - The x-coordinate of the rectangle's top-left corner.
+ * @param rectY - The y-coordinate of the rectangle's top-left corner.
+ * @param rectWidth - The width of the rectangle.
+ * @param rectHeight - The height of the rectangle.
+ * @returns True if the circle and rectangle are colliding, false otherwise.
  */
 function circleRectCollision(
   circleX: number,
@@ -152,8 +145,8 @@ function circleRectCollision(
 /**
  * Simulates the movement of the ball, paddle, and bricks for a breakout-style game.
  *
- * @param {Brick[]} bricks - The initial array of bricks to simulate.
- * @returns {FrameState[]} An array of frame states representing the simulation history.
+ * @param bricks - The initial array of bricks to simulate.
+ * @returns An array of frame states representing the simulation history.
  */
 function simulate(bricks: Brick[]): FrameState[] {
   // Initialize ball position at the center bottom of the canvas
@@ -253,8 +246,8 @@ function simulate(bricks: Brick[]): FrameState[] {
  * Converts an array of numbers to a semicolon-separated string with each number formatted to one decimal place.
  * It's used to create the values for SVG animations.
  *
- * @param {number[]} arr - The array of numbers to format.
- * @returns {string} The formatted string of numbers separated by semicolons.
+ * @param arr - The array of numbers to format.
+ * @returns The formatted string of numbers separated by semicolons.
  */
 function getAnimValues(arr: number[]): string {
   return arr.map((v) => v.toFixed(1)).join(";");
@@ -276,10 +269,10 @@ function minifySVG(svg: string): string {
 /**
  * Generates a minified SVG string representing a GitHub contributions as a Breakout game animation.
  *
- * @param {string} username - The GitHub username to fetch contributions for.
- * @param {string} githubToken - The GitHub token used for authentication.
- * @param {boolean} [darkMode=false] - Whether to use dark mode.
- * @returns {Promise<string>} A promise that resolves to the minified SVG string.
+ * @param username - The GitHub username to fetch contributions for.
+ * @param githubToken - The GitHub token used for authentication.
+ * @param [darkMode=false] - Whether to use dark mode.
+ * @returns A promise that resolves to the minified SVG string.
  */
 export async function generateSVG(
   username: string,
@@ -321,7 +314,7 @@ export async function generateSVG(
   const paddleX = states.map((s) => s.paddleX);
 
   // Prepare animation data for each brick
-  const brickAnimData = bricks.map((brick, i) => {
+  const brickAnimData = bricks.map((_, i) => {
     let firstZero = -1;
     // Find the first frame where the brick is not visible
     for (let f = 0; f < states.length; ++f) {
