@@ -11,21 +11,21 @@ var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, ge
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.generateSVG = generateSVG;
 // Configuration
-const padding = 15; // Padding around the canvas in pixels
-const paddleWidth = 75; // Paddle width in pixels
-const paddleHeight = 10; // Paddle height in pixels
-const paddleRadius = 5; // Paddle corner radius in pixels
-const paddleBrickGap = 100; // Gap between the last row of bricks and the paddle in pixels
-const ballRadius = 8; // Ball radius in pixels
-const brickSize = 12; // Brick size in pixels
-const brickGap = 3; // Gap between bricks in pixels
-const brickRadius = 3; // Radius for rounded corners of bricks
-const animateStep = 1; // Step size for animation frames
-const secondsPerFrame = 1 / 30; // Duration of each frame in seconds (30 FPS)
-const maxFrames = 30000; // Maximum number of frames to simulate
-const ballSpeed = 10; // Speed of the ball in pixels per frame
+const PADDING = 15; // Padding around the canvas in pixels
+const PADDLE_WIDTH = 75; // Paddle width in pixels
+const PADDLE_HEIGHT = 10; // Paddle height in pixels
+const PADDLE_RADIUS = 5; // Paddle corner radius in pixels
+const PADDLE_BRICK_GAP = 100; // Gap between the last row of bricks and the paddle in pixels
+const BALL_RADIUS = 8; // Ball radius in pixels
+const BRICK_SIZE = 12; // Brick size in pixels
+const BRICK_GAP = 3; // Gap between bricks in pixels
+const BRICK_RADIUS = 3; // Radius for rounded corners of bricks
+const ANIMATE_STEP = 1; // Step size for animation frames
+const SECONDS_PER_FRAME = 1 / 30; // Duration of each frame in seconds (30 FPS)
+const MAX_FRAMES = 30000; // Maximum number of frames to simulate
+const BALL_SPEED = 10; // Speed of the ball in pixels per frame
 // GitHub contribution graph green palettes
-const githubGreensDark = [
+const GITHUB_GREENS_DARK = [
     "#151B23",
     "#033A16",
     "#196C2E",
@@ -33,7 +33,7 @@ const githubGreensDark = [
     "#56D364",
 ];
 // Map from light palette color to dark palette color (the GraphQL API returns light colors and does not handle dark mode)
-const lightToDarkColorMap = {
+const LIGHT_TO_DARK_COLOR_MAP = {
     "#ebedf0": "#151B23",
     "#9be9a8": "#033A16",
     "#40c463": "#196C2E",
@@ -129,57 +129,57 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY) {
     let ballY = canvasHeight - 30;
     // Set the initial launch angle and calculate velocity components
     let launchAngle = -Math.PI / 4;
-    let ballVelocityX = ballSpeed * Math.cos(launchAngle);
-    let ballVelocityY = ballSpeed * Math.sin(launchAngle);
+    let ballVelocityX = BALL_SPEED * Math.cos(launchAngle);
+    let ballVelocityY = BALL_SPEED * Math.sin(launchAngle);
     // Create a copy of the bricks' array to simulate on
     const simulatedBricks = bricks.map((brick) => (Object.assign({}, brick)));
     // Array to store the state of each frame
     const frameHistory = [];
     let currentFrame = 0;
     // Initialize paddle position at the center
-    let paddlePositionX = (canvasWidth - paddleWidth) / 2;
+    let paddlePositionX = (canvasWidth - PADDLE_WIDTH) / 2;
     // Main simulation loop
     while (simulatedBricks.some((brick) => brick.status === "visible") &&
-        currentFrame < maxFrames) {
+        currentFrame < MAX_FRAMES) {
         // Move paddle to follow the ball, clamped within canvas bounds (respect padding)
-        paddlePositionX = Math.max(padding, Math.min(canvasWidth - padding - paddleWidth, ballX - paddleWidth / 2));
+        paddlePositionX = Math.max(PADDING, Math.min(canvasWidth - PADDING - PADDLE_WIDTH, ballX - PADDLE_WIDTH / 2));
         // Update ball position
         ballX += ballVelocityX;
         ballY += ballVelocityY;
         // Ball collision with left or right wall (respect padding)
-        if (ballX + ballVelocityX > canvasWidth - padding - ballRadius ||
-            ballX + ballVelocityX < padding + ballRadius) {
+        if (ballX + ballVelocityX > canvasWidth - PADDING - BALL_RADIUS ||
+            ballX + ballVelocityX < PADDING + BALL_RADIUS) {
             ballVelocityX = -ballVelocityX;
         }
         // Ball collision with top wall (respect padding)
-        if (ballY + ballVelocityY < padding + ballRadius) {
+        if (ballY + ballVelocityY < PADDING + BALL_RADIUS) {
             ballVelocityY = -ballVelocityY;
         }
         // Ball collision with paddle
-        const ballNextBottom = ballY + ballVelocityY + ballRadius;
+        const ballNextBottom = ballY + ballVelocityY + BALL_RADIUS;
         if (ballVelocityY > 0 &&
             ballNextBottom >= paddleY &&
-            ballY + ballRadius <= paddleY // was above paddle
+            ballY + BALL_RADIUS <= paddleY // was above paddle
         ) {
             ballVelocityY = -Math.abs(ballVelocityY);
             // Place the ball just at the paddle edge to prevent overlap
-            ballY = paddleY - ballRadius;
+            ballY = paddleY - BALL_RADIUS;
         }
         // Ball collision with bricks
         for (let i = 0; i < simulatedBricks.length; i++) {
             const brick = simulatedBricks[i];
             if (brick.status === "visible" &&
-                circleRectCollision(ballX, ballY, ballRadius, brick.x, brick.y, brickSize, brickSize)) {
+                circleRectCollision(ballX, ballY, BALL_RADIUS, brick.x, brick.y, BRICK_SIZE, BRICK_SIZE)) {
                 ballVelocityY = -ballVelocityY;
                 brick.status = "hidden";
                 break;
             }
         }
         // Prevent the ball from entering the padding on all sides
-        ballX = Math.max(padding + ballRadius, Math.min(canvasWidth - padding - ballRadius, ballX));
-        ballY = Math.max(padding + ballRadius, Math.min(canvasHeight - padding - ballRadius, ballY));
-        // Store the frame state at each animateStep interval
-        if (currentFrame % animateStep === 0) {
+        ballX = Math.max(PADDING + BALL_RADIUS, Math.min(canvasWidth - PADDING - BALL_RADIUS, ballX));
+        ballY = Math.max(PADDING + BALL_RADIUS, Math.min(canvasHeight - PADDING - BALL_RADIUS, ballY));
+        // Store the frame state at each ANIMATE_STEP interval
+        if (currentFrame % ANIMATE_STEP === 0) {
             frameHistory.push({
                 ballX: ballX,
                 ballY: ballY,
@@ -228,15 +228,15 @@ function generateSVG(username_1, githubToken_1) {
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colors.length;
         // Calculate canvasWidth and canvasHeight dynamically
-        const canvasWidth = brickColumnCount * (brickSize + brickGap) + padding * 2 - brickGap; // right edge flush
+        const canvasWidth = brickColumnCount * (BRICK_SIZE + BRICK_GAP) + PADDING * 2 - BRICK_GAP; // right edge flush
         // Bricks area height
-        const bricksTotalHeight = 7 * (brickSize + brickGap) - brickGap;
+        const bricksTotalHeight = 7 * (BRICK_SIZE + BRICK_GAP) - BRICK_GAP;
         // Calculate the vertical position of the paddle
         // The paddle sits below the last row of bricks plus the user-specified gap
-        const paddleY = padding + bricksTotalHeight + paddleBrickGap;
+        const paddleY = PADDING + bricksTotalHeight + PADDLE_BRICK_GAP;
         // Calculate the total canvas height
         // The ball and paddle should have enough space at the bottom (add a little margin)
-        const canvasHeight = paddleY + paddleHeight + padding;
+        const canvasHeight = paddleY + PADDLE_HEIGHT + PADDING;
         // Build bricks with correct color (API color for light, mapped for dark), skip missing days (null color)
         const bricks = [];
         for (let c = 0; c < brickColumnCount; c++) {
@@ -247,11 +247,12 @@ function generateSVG(username_1, githubToken_1) {
                 }
                 if (darkMode) {
                     dayColor =
-                        lightToDarkColorMap[dayColor.toLowerCase()] || githubGreensDark[0];
+                        LIGHT_TO_DARK_COLOR_MAP[dayColor.toLowerCase()] ||
+                            GITHUB_GREENS_DARK[0];
                 }
                 bricks.push({
-                    x: c * (brickSize + brickGap) + padding,
-                    y: r * (brickSize + brickGap) + padding,
+                    x: c * (BRICK_SIZE + BRICK_GAP) + PADDING,
+                    y: r * (BRICK_SIZE + BRICK_GAP) + PADDING,
                     color: dayColor,
                     status: "visible",
                 });
@@ -259,7 +260,7 @@ function generateSVG(username_1, githubToken_1) {
         }
         // Run the simulation
         const states = simulate(bricks, canvasWidth, canvasHeight, paddleY);
-        const animationDuration = states.length * secondsPerFrame * animateStep;
+        const animationDuration = states.length * SECONDS_PER_FRAME * ANIMATE_STEP;
         // Extract the X positions of the ball from each state
         const ballX = states.map((s) => s.ballX);
         // Extract the Y positions of the ball from each state
@@ -298,10 +299,10 @@ function generateSVG(username_1, githubToken_1) {
             const anim = brickAnimData[i];
             if (!anim.animate) {
                 // Static brick (never disappears)
-                return `<rect x="${brick.x}" y="${brick.y}" width="${brickSize}" height="${brickSize}" rx="${brickRadius}" fill="${brick.color}" opacity="1"/>`;
+                return `<rect x="${brick.x}" y="${brick.y}" width="${BRICK_SIZE}" height="${BRICK_SIZE}" rx="${BRICK_RADIUS}" fill="${brick.color}" opacity="1"/>`;
             }
             // Animated brick (disappears at some point)
-            return `<rect x="${brick.x}" y="${brick.y}" width="${brickSize}" height="${brickSize}" rx="${brickRadius}" fill="${brick.color}">
+            return `<rect x="${brick.x}" y="${brick.y}" width="${BRICK_SIZE}" height="${BRICK_SIZE}" rx="${BRICK_RADIUS}" fill="${brick.color}">
         <animate attributeName="opacity"
           values="${anim.values}"
           keyTimes="${anim.keyTimes}"
@@ -311,11 +312,11 @@ function generateSVG(username_1, githubToken_1) {
       </rect>`;
         })
             .join("")}
-  <rect y="${paddleY}" width="${paddleWidth}" height="${paddleHeight}" rx="${paddleRadius}" fill="#1F6FEB">
+  <rect y="${paddleY}" width="${PADDLE_WIDTH}" height="${PADDLE_HEIGHT}" rx="${PADDLE_RADIUS}" fill="#1F6FEB">
     <!-- Animate paddle X position -->
     <animate attributeName="x" values="${getAnimValues(paddleX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
   </rect>
-  <circle r="${ballRadius}" fill="#1F6FEB">
+  <circle r="${BALL_RADIUS}" fill="#1F6FEB">
     <!-- Animate ball X and Y positions -->
     <animate attributeName="cx" values="${getAnimValues(ballX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
     <animate attributeName="cy" values="${getAnimValues(ballY)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
