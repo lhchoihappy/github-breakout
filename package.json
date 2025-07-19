@@ -1,7 +1,7 @@
 {
   "name": "github-breakout",
   "version": "1.0.0",
-  "description": "Generate a Breakout game svg from github contribution graph",
+  "description": "Generate a Breakout game SVG from a GitHub user's contributions graph",
   "main": "src/index.js",
   "scripts": {
     "dev": "ts-node src/cli.ts",
