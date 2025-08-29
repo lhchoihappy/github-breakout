@@ -125,10 +125,10 @@ function circleRectCollision(circleX, circleY, circleRadius, rectX, rectY, rectW
  * @param canvasWidth - The width of the canvas.
  * @param canvasHeight - The height of the canvas.
  * @param paddleY - The vertical position of the paddle.
- * @param onlyBreakCommitted - If true, only bricks with commits are broken, others remain only visual.
+ * @param ignoreEmptyDays - If true, only bricks with commits are broken, others remain only visual.
  * @returns An array of frame states representing the simulation history.
  */
-function simulate(bricks, canvasWidth, canvasHeight, paddleY, onlyBreakCommitted) {
+function simulate(bricks, canvasWidth, canvasHeight, paddleY, ignoreEmptyDays) {
     // Initialize ball position at the center bottom of the canvas
     let ballX = canvasWidth / 2;
     let ballY = canvasHeight - 30;
@@ -144,7 +144,7 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY, onlyBreakCommitted
     // Initialize paddle position at the center
     let paddlePositionX = (canvasWidth - PADDLE_WIDTH) / 2;
     // Main simulation loop
-    while (simulatedBricks.some((brick) => brick.status === "visible" && (!onlyBreakCommitted || brick.hasCommit)) &&
+    while (simulatedBricks.some((brick) => brick.status === "visible" && (!ignoreEmptyDays || brick.hasCommit)) &&
         currentFrame < MAX_FRAMES) {
         // Move paddle to follow the ball, clamped within canvas bounds (respect padding)
         paddlePositionX = Math.max(PADDING, Math.min(canvasWidth - PADDING - PADDLE_WIDTH, ballX - PADDLE_WIDTH / 2));
@@ -174,7 +174,7 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY, onlyBreakCommitted
         for (let i = 0; i < simulatedBricks.length; i++) {
             const brick = simulatedBricks[i];
             if (brick.status === "visible" &&
-                (!onlyBreakCommitted || brick.hasCommit) &&
+                (!ignoreEmptyDays || brick.hasCommit) &&
                 circleRectCollision(ballX, ballY, BALL_RADIUS, brick.x, brick.y, BRICK_SIZE, BRICK_SIZE)) {
                 ballVelocityY = -ballVelocityY;
                 brick.status = "hidden";
@@ -225,12 +225,12 @@ function minifySVG(svg) {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param options - Options object (darkMode?: boolean, onlyBreakCommitted?: boolean)
+ * @param options - Options object (darkMode?: boolean, ignoreEmptyDays?: boolean)
  * @returns A promise that resolves to the minified SVG string.
  */
 function generateSVG(username_1, githubToken_1) {
     return __awaiter(this, arguments, void 0, function* (username, githubToken, options = {}) {
-        const { darkMode = false, onlyBreakCommitted = true } = options;
+        const { darkMode = false, ignoreEmptyDays = true } = options;
         const colorDays = yield fetchGithubContributionsGraphQL(username, githubToken);
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colorDays.length;
@@ -276,7 +276,7 @@ function generateSVG(username_1, githubToken_1) {
             }
         }
         // Run the simulation
-        const states = simulate(bricks, canvasWidth, canvasHeight, paddleY, onlyBreakCommitted);
+        const states = simulate(bricks, canvasWidth, canvasHeight, paddleY, ignoreEmptyDays);
         const animationDuration = states.length * SECONDS_PER_FRAME * ANIMATE_STEP;
         // Extract the X positions of the ball from each state
         const ballX = states.map((s) => s.ballX);
@@ -321,8 +321,8 @@ function generateSVG(username_1, githubToken_1) {
         const brickUses = bricks
             .map((brick, i) => {
             const anim = brickAnimData[i];
-            // For onlyBreakCommitted=true: switch color to c0 when brick is broken
-            if (onlyBreakCommitted && anim.animate) {
+            // For ignoreEmptyDays=true: switch color to c0 when brick is broken
+            if (ignoreEmptyDays && anim.animate) {
                 const t = anim.firstZero / (states.length - 1);
                 // Animate fill from original color to c0
                 const origColor = colorPalette.find((c, idx) => `c${idx}` === brick.colorClass) ||
@@ -336,7 +336,7 @@ function generateSVG(username_1, githubToken_1) {
           repeatCount="indefinite"/>
       </use>`;
             }
-            // For onlyBreakCommitted=false: fade out original (old behavior)
+            // For ignoreEmptyDays=false: hide the brick when broken
             if (anim.animate) {
                 return `<use href="#brick" x="${brick.x}" y="${brick.y}" class="${brick.colorClass}">
         <animate attributeName="opacity"
@@ -357,7 +357,7 @@ function generateSVG(username_1, githubToken_1) {
       <animate attributeName="x" values="${getAnimValues(paddleX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
     </rect>
   </g>`;
-        // Ball: always animate cx/cy
+        // Ball animate cx/cy
         const ballCircle = `<circle r="${BALL_RADIUS}" fill="#1F6FEB">
     <animate attributeName="cx" values="${getAnimValues(ballX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
     <animate attributeName="cy" values="${getAnimValues(ballY)}" dur="${animationDuration}s" repeatCount="indefinite"/>

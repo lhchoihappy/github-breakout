@@ -19,11 +19,7 @@ program
     process.env.INPUT_GITHUB_TOKEN || process.env.GITHUB_TOKEN,
   )
   .option("--dark", "Generate dark mode SVG", false)
-  .option(
-    "--disable-only-break-commited",
-    "Allow all bricks to be broken",
-    false,
-  );
+  .option("--enable-empty-days", "Empty days be used as bricks", false);
 
 // Parse arguments
 program.parse(process.argv);
@@ -39,7 +35,7 @@ if (!options.username || !options.token) {
   process.exit(1);
 }
 
-// Create ouput directory
+// Create output directory
 const outDir = path.join(process.cwd(), "output");
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
@@ -47,14 +43,17 @@ if (!fs.existsSync(outDir)) {
 
 // Generate file name
 const darkMode = !!options.dark;
-const onlyBreakCommitted = !options.disableOnlyBreakCommited;
+const ignoreEmptyDays = !options.enableEmptyDays;
 const outputFile = path.join(
   outDir,
   `github-breakout-${darkMode ? "dark" : "light"}.svg`,
 );
 
 // Generate SVG
-generateSVG(options.username, options.token, { darkMode, onlyBreakCommitted })
+generateSVG(options.username, options.token, {
+  darkMode,
+  ignoreEmptyDays,
+})
   .then((svg) => {
     fs.writeFileSync(outputFile, svg);
     console.log(`SVG generated: ${outputFile}`);

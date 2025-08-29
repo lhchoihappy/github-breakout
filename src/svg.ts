@@ -43,7 +43,7 @@ interface Brick {
   y: number; // Brick y position
   status: BrickStatus; // Brick visibility status
   colorClass: string; // CSS class for color
-  hasCommit?: boolean; // Indicates if this brick represents a commit
+  hasCommit?: boolean; // Indicates if this brick has commit or is empty
 }
 
 // One frame of the simulation state
@@ -153,7 +153,7 @@ function circleRectCollision(
  * @param canvasWidth - The width of the canvas.
  * @param canvasHeight - The height of the canvas.
  * @param paddleY - The vertical position of the paddle.
- * @param onlyBreakCommitted - If true, only bricks with commits are broken, others remain only visual.
+ * @param ignoreEmptyDays - If true, only bricks with commits are broken, others remain only visual.
  * @returns An array of frame states representing the simulation history.
  */
 function simulate(
@@ -161,7 +161,7 @@ function simulate(
   canvasWidth: number,
   canvasHeight: number,
   paddleY: number,
-  onlyBreakCommitted: boolean,
+  ignoreEmptyDays: boolean,
 ): FrameState[] {
   // Initialize ball position at the center bottom of the canvas
   let ballX = canvasWidth / 2;
@@ -186,7 +186,7 @@ function simulate(
   while (
     simulatedBricks.some(
       (brick) =>
-        brick.status === "visible" && (!onlyBreakCommitted || brick.hasCommit),
+        brick.status === "visible" && (!ignoreEmptyDays || brick.hasCommit),
     ) &&
     currentFrame < MAX_FRAMES
   ) {
@@ -230,7 +230,7 @@ function simulate(
       const brick = simulatedBricks[i];
       if (
         brick.status === "visible" &&
-        (!onlyBreakCommitted || brick.hasCommit) &&
+        (!ignoreEmptyDays || brick.hasCommit) &&
         circleRectCollision(
           ballX,
           ballY,
@@ -303,15 +303,15 @@ function minifySVG(svg: string): string {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param options - Options object (darkMode?: boolean, onlyBreakCommitted?: boolean)
+ * @param options - Options object (darkMode?: boolean, ignoreEmptyDays?: boolean)
  * @returns A promise that resolves to the minified SVG string.
  */
 export async function generateSVG(
   username: string,
   githubToken: string,
-  options: { darkMode?: boolean; onlyBreakCommitted?: boolean } = {},
+  options: { darkMode?: boolean; ignoreEmptyDays?: boolean } = {},
 ): Promise<string> {
-  const { darkMode = false, onlyBreakCommitted = true } = options;
+  const { darkMode = false, ignoreEmptyDays = true } = options;
   const colorDays = await fetchGithubContributionsGraphQL(
     username,
     githubToken,
@@ -339,6 +339,7 @@ export async function generateSVG(
   const colorPalette = darkMode
     ? GITHUB_GREENS_DARK
     : Object.keys(LIGHT_TO_DARK_COLOR_MAP);
+
   // Map each color to a class: c0, c1, ...
   const colorToClass = (color: string) => {
     const idx = colorPalette.findIndex(
@@ -376,7 +377,7 @@ export async function generateSVG(
     canvasWidth,
     canvasHeight,
     paddleY,
-    onlyBreakCommitted,
+    ignoreEmptyDays,
   );
   const animationDuration = states.length * SECONDS_PER_FRAME * ANIMATE_STEP;
 
@@ -426,8 +427,8 @@ export async function generateSVG(
   const brickUses = bricks
     .map((brick, i) => {
       const anim = brickAnimData[i];
-      // For onlyBreakCommitted=true: switch color to c0 when brick is broken
-      if (onlyBreakCommitted && anim.animate) {
+      // For ignoreEmptyDays=true: switch color to c0 when brick is broken
+      if (ignoreEmptyDays && anim.animate) {
         const t = anim.firstZero / (states.length - 1);
         // Animate fill from original color to c0
         const origColor =
@@ -442,7 +443,7 @@ export async function generateSVG(
           repeatCount="indefinite"/>
       </use>`;
       }
-      // For onlyBreakCommitted=false: fade out original (old behavior)
+      // For ignoreEmptyDays=false: hide the brick when broken
       if (anim.animate) {
         return `<use href="#brick" x="${brick.x}" y="${brick.y}" class="${brick.colorClass}">
         <animate attributeName="opacity"
@@ -465,7 +466,7 @@ export async function generateSVG(
     </rect>
   </g>`;
 
-  // Ball: always animate cx/cy
+  // Ball animate cx/cy
   const ballCircle = `<circle r="${BALL_RADIUS}" fill="#1F6FEB">
     <animate attributeName="cx" values="${getAnimValues(ballX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
     <animate attributeName="cy" values="${getAnimValues(ballY)}" dur="${animationDuration}s" repeatCount="indefinite"/>

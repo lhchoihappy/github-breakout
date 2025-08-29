@@ -45,7 +45,7 @@ program
     .option("--username <github-username>", "GitHub username (or set GITHUB_USERNAME or INPUT_GITHUB_USERNAME env var)", process.env.INPUT_GITHUB_USERNAME || process.env.GITHUB_USERNAME)
     .option("--token <github-token>", "GitHub token (or set GITHUB_TOKEN or INPUT_GITHUB_TOKEN env var)", process.env.INPUT_GITHUB_TOKEN || process.env.GITHUB_TOKEN)
     .option("--dark", "Generate dark mode SVG", false)
-    .option("--disable-only-break-commited", "Allow all bricks to be broken", false);
+    .option("--enable-empty-days", "Empty days be used as bricks", false);
 // Parse arguments
 program.parse(process.argv);
 const options = program.opts();
@@ -56,17 +56,20 @@ if (!options.username || !options.token) {
         "Or use in GitHub Actions with 'github_username' and 'github_token' inputs.");
     process.exit(1);
 }
-// Create ouput directory
+// Create output directory
 const outDir = path.join(process.cwd(), "output");
 if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
 }
 // Generate file name
 const darkMode = !!options.dark;
-const onlyBreakCommitted = !options.disableOnlyBreakCommited;
+const ignoreEmptyDays = !options.enableEmptyDays;
 const outputFile = path.join(outDir, `github-breakout-${darkMode ? "dark" : "light"}.svg`);
 // Generate SVG
-(0, svg_1.generateSVG)(options.username, options.token, { darkMode, onlyBreakCommitted })
+(0, svg_1.generateSVG)(options.username, options.token, {
+    darkMode,
+    ignoreEmptyDays,
+})
     .then((svg) => {
     fs.writeFileSync(outputFile, svg);
     console.log(`SVG generated: ${outputFile}`);
