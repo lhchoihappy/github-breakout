@@ -37,15 +37,21 @@ const svg_1 = require("./svg");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
 const commander_1 = require("commander");
+// Helper to get input from environment variables (for GitHub Actions compatibility)
+function getInput(name, fallback) {
+    // GitHub Actions sets INPUT_<name> (uppercase, underscores)
+    const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
+    return process.env[envName] || fallback;
+}
 // Create program
 const program = new commander_1.Command();
 program
     .name("github-breakout-cli")
     .description("Generate a GitHub Breakout SVG")
-    .option("--username <github-username>", "GitHub username (or set GITHUB_USERNAME or INPUT_GITHUB_USERNAME env var)", process.env.INPUT_GITHUB_USERNAME || process.env.GITHUB_USERNAME)
-    .option("--token <github-token>", "GitHub token (or set GITHUB_TOKEN or INPUT_GITHUB_TOKEN env var)", process.env.INPUT_GITHUB_TOKEN || process.env.GITHUB_TOKEN)
+    .option("--username <github-username>", "GitHub username (or set GITHUB_USERNAME or INPUT_GITHUB_USERNAME env var)", getInput("GITHUB_USERNAME", process.env.GITHUB_USERNAME))
+    .option("--token <github-token>", "GitHub token (or set GITHUB_TOKEN or INPUT_GITHUB_TOKEN env var)", getInput("GITHUB_TOKEN", process.env.GITHUB_TOKEN))
     .option("--dark", "Generate dark mode SVG", false)
-    .option("--enable-empty-days", "Empty days be used as bricks", false);
+    .option("--enable-empty-days", "Empty days be used as bricks", !!getInput("ENABLE_EMPTY_DAYS"));
 // Parse arguments
 program.parse(process.argv);
 const options = program.opts();
@@ -61,20 +67,43 @@ const outDir = path.join(process.cwd(), "output");
 if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
 }
-// Generate file name
-const darkMode = !!options.dark;
+// Set empty days option
 const ignoreEmptyDays = !options.enableEmptyDays;
-const outputFile = path.join(outDir, `${darkMode ? "dark" : "light"}.svg`);
-// Generate SVG
-(0, svg_1.generateSVG)(options.username, options.token, {
-    darkMode,
-    ignoreEmptyDays,
-})
-    .then((svg) => {
-    fs.writeFileSync(outputFile, svg);
-    console.log(`SVG generated: ${outputFile}`);
-})
-    .catch((err) => {
-    console.error("Failed to generate SVG:", err);
-    process.exit(1);
-});
+// Behavior: If running in GitHub Actions, always generate both light and dark SVGs.
+// Otherwise, generate the single requested mode (light by default, dark if --dark is passed).
+const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
+if (isGitHubActions) {
+    // Generate both light and dark SVGs for GitHub Actions
+    const variants = [
+        { darkMode: false, name: "light" },
+        { darkMode: true, name: "dark" },
+    ];
+    Promise.all(variants.map(({ darkMode, name }) => (0, svg_1.generateSVG)(options.username, options.token, {
+        darkMode,
+        ignoreEmptyDays,
+    }).then((svg) => {
+        const outputFile = path.join(outDir, `${name}.svg`);
+        fs.writeFileSync(outputFile, svg);
+        console.log(`SVG generated: ${outputFile}`);
+    }))).catch((err) => {
+        console.error("Failed to generate SVG(s):", err);
+        process.exit(1);
+    });
+}
+else {
+    // Generate a single SVG (default: light, or dark if --dark)
+    const darkMode = !!options.dark;
+    const outputFile = path.join(outDir, `${darkMode ? "dark" : "light"}.svg`);
+    (0, svg_1.generateSVG)(options.username, options.token, {
+        darkMode,
+        ignoreEmptyDays,
+    })
+        .then((svg) => {
+        fs.writeFileSync(outputFile, svg);
+        console.log(`SVG generated: ${outputFile}`);
+    })
+        .catch((err) => {
+        console.error("Failed to generate SVG:", err);
+        process.exit(1);
+    });
+}
