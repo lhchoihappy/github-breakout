@@ -1,4 +1,4 @@
-# Github Breakout
+# GitHub Breakout
 
 Generate a Breakout game SVG from a GitHub user's contributions graph
 
@@ -20,9 +20,9 @@ This project will grab your contribution graph through the GitHub API and genera
 
 ### GitHub Action
 
-You can use the provided GitHub Action to build the SVGs so you can display them like on my profile ([github.com/cyprieng](https://github.com/cyprieng)):
+You can use the provided GitHub Action to build the SVGs so you can display them like on my profile ([github.com/cyprieng](https://github.com/cyprieng)).
 
-Generate the SVGs every day and commit them to your repository:
+This GitHub workflow generates the SVGs every day and commit them to your repository:
 
 ```yaml
 name: generate breakout svg
@@ -48,37 +48,41 @@ jobs:
         with:
           github_username: ${{ github.repository_owner }}
 
-      - name: Move generated SVGs
+      - name: Move generated SVGs to temp
         run: |
-          mkdir -p images
-          mv output/light.svg images/breakout-light.svg
-          mv output/dark.svg images/breakout-dark.svg
+          mkdir -p /tmp/breakout-images
+          mv output/light.svg /tmp/breakout-images/breakout-light.svg
+          mv output/dark.svg /tmp/breakout-images/breakout-dark.svg
 
       - name: Configure git
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
 
-      - name: Commit and push SVGs
+      - name: Commit and force-push SVGs to target branch
         run: |
-          git add images/breakout-light.svg images/breakout-dark.svg
-          git commit -m "chore: update breakout SVGs" || echo "No changes to commit"
-          git push
+          git checkout --orphan github-breakout
+          git rm -rf .
+          mkdir images
+          mv /tmp/breakout-images/* images/
+          git add images
+          git commit -m "chore: update GitHub breakout SVGs" || echo "No changes to commit"
+          git push --force origin github-breakout
 ```
 
-Add them to your README.md:
+Then retrieve the images URLs from the github-breakout branch, and add them to your README.md:
 
 ```html
 <picture>
   <source
     media="(prefers-color-scheme: dark)"
-    srcset="images/breakout-dark.svg"
+    srcset="{YOUR IMAGE URL}/images/breakout-dark.svg"
   />
   <source
     media="(prefers-color-scheme: light)"
-    srcset="images/breakout-light.svg"
+    srcset="{YOUR IMAGE URL}/images/breakout-light.svg"
   />
-  <img alt="Breakout Game" src="images/breakout-light.svg" />
+  <img alt="Breakout Game" src="{YOUR IMAGE URL}/images/breakout-light.svg" />
 </picture>
 ```
 
