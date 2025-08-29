@@ -19,5 +19,12 @@ inputs:
     required: false
 
 runs:
-  using: node20
-  main: "entrypoint.sh"
+  using: "composite"
+  steps:
+    - name: Set GitHub Path
+      run: echo "$GITHUB_ACTION_PATH" >> $GITHUB_PATH
+      shell: bash
+      env:
+        GITHUB_ACTION_PATH: ${{ github.action_path }}
+    - run: action_entrypoint.sh
+      shell: bash
