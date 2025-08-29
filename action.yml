@@ -14,7 +14,10 @@ inputs:
     description: "Github token used to fetch the contributions. Default to the action token if empty."
     required: false
     default: ${{ github.token }}
+  enable_empty_days:
+    description: "Empty days be used as bricks"
+    required: false
 
 runs:
   using: node20
-  main: dist/cli.js
+  main: "entrypoint.sh"
