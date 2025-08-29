@@ -64,7 +64,7 @@ if (!fs.existsSync(outDir)) {
 // Generate file name
 const darkMode = !!options.dark;
 const ignoreEmptyDays = !options.enableEmptyDays;
-const outputFile = path.join(outDir, `github-breakout-${darkMode ? "dark" : "light"}.svg`);
+const outputFile = path.join(outDir, `${darkMode ? "dark" : "light"}.svg`);
 // Generate SVG
 (0, svg_1.generateSVG)(options.username, options.token, {
     darkMode,
