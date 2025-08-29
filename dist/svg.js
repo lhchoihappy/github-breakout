@@ -200,7 +200,7 @@ function simulate(bricks, canvasWidth, canvasHeight, paddleY) {
  * @returns The formatted string of numbers separated by semicolons.
  */
 function getAnimValues(arr) {
-    return arr.map((v) => v.toFixed(1)).join(";");
+    return arr.map((v) => v.toFixed(0)).join(";");
 }
 /**
  * Minifies an SVG string by removing unnecessary whitespace, line breaks, and spaces between tags.
@@ -237,7 +237,16 @@ function generateSVG(username_1, githubToken_1) {
         // Calculate the total canvas height
         // The ball and paddle should have enough space at the bottom (add a little margin)
         const canvasHeight = paddleY + PADDLE_HEIGHT + PADDING;
-        // Build bricks with correct color (API color for light, mapped for dark), skip missing days (null color)
+        // Pick palette and setup color class mapping
+        const colorPalette = darkMode
+            ? GITHUB_GREENS_DARK
+            : Object.keys(LIGHT_TO_DARK_COLOR_MAP);
+        // Map each color to a class: c0, c1, ...
+        const colorToClass = (color) => {
+            const idx = colorPalette.findIndex((c) => c.toLowerCase() === color.toLowerCase());
+            return idx !== -1 ? `c${idx}` : "c0";
+        };
+        // Build bricks with colorClass instead of color, skip missing days (null color)
         const bricks = [];
         for (let c = 0; c < brickColumnCount; c++) {
             for (let r = 0; r < 7; r++) {
@@ -253,11 +262,18 @@ function generateSVG(username_1, githubToken_1) {
                 bricks.push({
                     x: c * (BRICK_SIZE + BRICK_GAP) + PADDING,
                     y: r * (BRICK_SIZE + BRICK_GAP) + PADDING,
-                    color: dayColor,
+                    colorClass: colorToClass(dayColor),
                     status: "visible",
                 });
             }
         }
+        // Group bricks by colorClass
+        const bricksByClass = {};
+        bricks.forEach((brick, i) => {
+            if (!bricksByClass[brick.colorClass])
+                bricksByClass[brick.colorClass] = [];
+            bricksByClass[brick.colorClass].push({ brick, index: i });
+        });
         // Run the simulation
         const states = simulate(bricks, canvasWidth, canvasHeight, paddleY);
         const animationDuration = states.length * SECONDS_PER_FRAME * ANIMATE_STEP;
@@ -289,38 +305,56 @@ function generateSVG(username_1, githubToken_1) {
                 return { animate: true, keyTimes, values };
             }
         });
-        // Generate keyTimes string for animation steps
-        const keyTimes = Array.from({ length: states.length }, (_, i) => (i / (states.length - 1)).toFixed(4)).join(";");
-        // Build the SVG string with animated bricks, paddle, and ball
+        // SVG CSS style for brick color classes
+        const style = `<style>${colorPalette
+            .map((color, i) => `.c${i}{fill:${color}}`)
+            .join("")}</style>`;
+        // Brick symbol definition
+        const brickSymbol = `<defs>
+  <symbol id="brick">
+    <rect x="0" y="0" width="${BRICK_SIZE}" height="${BRICK_SIZE}" rx="${BRICK_RADIUS}"/>
+  </symbol>
+</defs>`;
+        // Bricks grouped by color class
+        const brickGroups = Object.entries(bricksByClass)
+            .map(([colorClass, brickGroup]) => {
+            const uses = brickGroup
+                .map(({ brick, index }) => {
+                const anim = brickAnimData[index];
+                const useElem = `<use href="#brick" x="${brick.x}" y="${brick.y}"${!anim.animate ? ` opacity="1"` : ""} />`;
+                if (!anim.animate)
+                    return useElem;
+                return `<use href="#brick" x="${brick.x}" y="${brick.y}">
+          <animate attributeName="opacity"
+            values="${anim.values}"
+            keyTimes="${anim.keyTimes}"
+            dur="${animationDuration}s"
+            fill="freeze"
+            repeatCount="indefinite"/>
+        </use>`;
+            })
+                .join("");
+            return `<g class="${colorClass}">${uses}</g>`;
+        })
+            .join("");
+        // Paddle is always at same y, so use a transform for y, animate x only
+        const paddleRect = `<g transform="translate(0,${paddleY})">
+    <rect y="0" width="${PADDLE_WIDTH}" height="${PADDLE_HEIGHT}" rx="${PADDLE_RADIUS}" fill="#1F6FEB">
+      <animate attributeName="x" values="${getAnimValues(paddleX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
+    </rect>
+  </g>`;
+        // Ball: always animate cx/cy
+        const ballCircle = `<circle r="${BALL_RADIUS}" fill="#1F6FEB">
+    <animate attributeName="cx" values="${getAnimValues(ballX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
+    <animate attributeName="cy" values="${getAnimValues(ballY)}" dur="${animationDuration}s" repeatCount="indefinite"/>
+  </circle>`;
         const svg = `
 <svg width="${canvasWidth}" height="${canvasHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}" xmlns="http://www.w3.org/2000/svg">
-  ${bricks
-            .map((brick, i) => {
-            const anim = brickAnimData[i];
-            if (!anim.animate) {
-                // Static brick (never disappears)
-                return `<rect x="${brick.x}" y="${brick.y}" width="${BRICK_SIZE}" height="${BRICK_SIZE}" rx="${BRICK_RADIUS}" fill="${brick.color}" opacity="1"/>`;
-            }
-            // Animated brick (disappears at some point)
-            return `<rect x="${brick.x}" y="${brick.y}" width="${BRICK_SIZE}" height="${BRICK_SIZE}" rx="${BRICK_RADIUS}" fill="${brick.color}">
-        <animate attributeName="opacity"
-          values="${anim.values}"
-          keyTimes="${anim.keyTimes}"
-          dur="${animationDuration}s"
-          fill="freeze"
-          repeatCount="indefinite"/>
-      </rect>`;
-        })
-            .join("")}
-  <rect y="${paddleY}" width="${PADDLE_WIDTH}" height="${PADDLE_HEIGHT}" rx="${PADDLE_RADIUS}" fill="#1F6FEB">
-    <!-- Animate paddle X position -->
-    <animate attributeName="x" values="${getAnimValues(paddleX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
-  </rect>
-  <circle r="${BALL_RADIUS}" fill="#1F6FEB">
-    <!-- Animate ball X and Y positions -->
-    <animate attributeName="cx" values="${getAnimValues(ballX)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
-    <animate attributeName="cy" values="${getAnimValues(ballY)}" keyTimes="${keyTimes}" dur="${animationDuration}s" repeatCount="indefinite"/>
-  </circle>
+  ${style}  
+  ${brickSymbol}
+  ${brickGroups}
+  ${paddleRect}
+  ${ballCircle}
 </svg>
     `.trim();
         // Minify and return the SVG string
