@@ -225,12 +225,12 @@ function minifySVG(svg) {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param [darkMode=false] - Whether to use dark mode.
- * @param [onlyBreakCommitted=false] - If true, only bricks with commits are broken, others remain only visual.
+ * @param options - Options object (darkMode?: boolean, onlyBreakCommitted?: boolean)
  * @returns A promise that resolves to the minified SVG string.
  */
 function generateSVG(username_1, githubToken_1) {
-    return __awaiter(this, arguments, void 0, function* (username, githubToken, darkMode = false, onlyBreakCommitted = true) {
+    return __awaiter(this, arguments, void 0, function* (username, githubToken, options = {}) {
+        const { darkMode = false, onlyBreakCommitted = true } = options;
         const colorDays = yield fetchGithubContributionsGraphQL(username, githubToken);
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colorDays.length;

@@ -36,32 +36,42 @@ Object.defineProperty(exports, "__esModule", { value: true });
 const svg_1 = require("./svg");
 const fs = __importStar(require("fs"));
 const path = __importStar(require("path"));
-// Prefer environment variables (GitHub Actions), fallback to CLI args for local dev
-const username = process.env.INPUT_GITHUB_USERNAME ||
-    process.argv[2] ||
-    process.env.GITHUB_USERNAME;
-const token = process.env.INPUT_GITHUB_TOKEN || process.argv[3] || process.env.GITHUB_TOKEN;
-// If no token or username is provided, print usage and exit
-if (!username || !token) {
-    console.error("Usage: node cli.js <github-username> <github-token>\n" +
-        "Or set GITHUB_USERNAME and GITHUB_TOKEN as environment variables.\n" +
+const commander_1 = require("commander");
+// Create program
+const program = new commander_1.Command();
+program
+    .name("github-breakout-cli")
+    .description("Generate a GitHub Breakout SVG")
+    .option("--username <github-username>", "GitHub username (or set GITHUB_USERNAME or INPUT_GITHUB_USERNAME env var)", process.env.INPUT_GITHUB_USERNAME || process.env.GITHUB_USERNAME)
+    .option("--token <github-token>", "GitHub token (or set GITHUB_TOKEN or INPUT_GITHUB_TOKEN env var)", process.env.INPUT_GITHUB_TOKEN || process.env.GITHUB_TOKEN)
+    .option("--dark", "Generate dark mode SVG", false)
+    .option("--disable-only-break-commited", "Allow all bricks to be broken", false);
+// Parse arguments
+program.parse(process.argv);
+const options = program.opts();
+// Check that we have username and token
+if (!options.username || !options.token) {
+    console.error("Error: Both a GitHub username and token are required.\n" +
+        "Provide via --username/--token or set GITHUB_USERNAME and GITHUB_TOKEN as environment variables.\n" +
         "Or use in GitHub Actions with 'github_username' and 'github_token' inputs.");
     process.exit(1);
 }
-// Ensure output directory exists
+// Create ouput directory
 const outDir = path.join(process.cwd(), "output");
 if (!fs.existsSync(outDir)) {
     fs.mkdirSync(outDir, { recursive: true });
 }
-// Generate both light and dark SVGs
-Promise.all([
-    (0, svg_1.generateSVG)(username, token, false).then((svg) => fs.writeFileSync(path.join(outDir, "light.svg"), svg)),
-    (0, svg_1.generateSVG)(username, token, true).then((svg) => fs.writeFileSync(path.join(outDir, "dark.svg"), svg)),
-])
-    .then(() => {
-    console.log("SVGs generated: output/light.svg, output/dark.svg");
+// Generate file name
+const darkMode = !!options.dark;
+const onlyBreakCommitted = !options.disableOnlyBreakCommited;
+const outputFile = path.join(outDir, `github-breakout-${darkMode ? "dark" : "light"}.svg`);
+// Generate SVG
+(0, svg_1.generateSVG)(options.username, options.token, { darkMode, onlyBreakCommitted })
+    .then((svg) => {
+    fs.writeFileSync(outputFile, svg);
+    console.log(`SVG generated: ${outputFile}`);
 })
     .catch((err) => {
-    console.error("Failed to generate SVGs:", err);
+    console.error("Failed to generate SVG:", err);
     process.exit(1);
 });

@@ -303,16 +303,15 @@ function minifySVG(svg: string): string {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param [darkMode=false] - Whether to use dark mode.
- * @param [onlyBreakCommitted=false] - If true, only bricks with commits are broken, others remain only visual.
+ * @param options - Options object (darkMode?: boolean, onlyBreakCommitted?: boolean)
  * @returns A promise that resolves to the minified SVG string.
  */
 export async function generateSVG(
   username: string,
   githubToken: string,
-  darkMode = false,
-  onlyBreakCommitted = true,
+  options: { darkMode?: boolean; onlyBreakCommitted?: boolean } = {},
 ): Promise<string> {
+  const { darkMode = false, onlyBreakCommitted = true } = options;
   const colorDays = await fetchGithubContributionsGraphQL(
     username,
     githubToken,
