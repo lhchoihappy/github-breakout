@@ -14,8 +14,11 @@ inputs:
     description: "Github token used to fetch the contributions. Default to the action token if empty."
     required: false
     default: ${{ github.token }}
-  enable_empty_days:
-    description: "Empty days be used as bricks"
+  enable_ghost_bricks:
+    description: "Ghost bricks for days without contribution"
+    required: false
+  output_path:
+    description: "Output path for SVGs"
     required: false
 
 runs:

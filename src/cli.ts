@@ -2,20 +2,37 @@ import { generateSVG } from "./svg";
 import * as fs from "fs";
 import * as path from "path";
 
-function getInput(name: string, fallback?: string) {
-  const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
-  return process.env[envName] || fallback;
-}
-
+// Parse arguments
 interface ParsedArgs {
-  username?: string;
-  token?: string;
-  dark?: boolean;
-  enableEmptyDays?: boolean;
+  username?: string; // GitHub username
+  token?: string; // GitHub token
+  light?: boolean; // Generate light mode SVG
+  dark?: boolean; // Generate dark mode SVG
+  enableGhostBricks?: boolean; // Ghost bricks for days without contribution
+  outputPath?: string; // Output path
 }
 
+/**
+ * Get an input value from environment variables or from GitHub Actions inputs
+ * @param name - The name of the input variable.
+ * @param fallback - The fallback value if the input is not set.
+ * @returns The input value as a string
+ */
+function getInput(name: string, fallback = ""): string {
+  const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
+  return process.env[envName] ?? process.env[name] ?? fallback;
+}
+
+/**
+ * Parse command-line arguments into an object.
+ * @param argv - The array of command-line arguments to parse.
+ * @returns An object containing the parsed arguments.
+ */
 function parseArgs(argv: string[]): ParsedArgs {
-  const parsed: ParsedArgs = {};
+  const parsed: ParsedArgs = {
+    dark: false,
+    light: false,
+  };
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i];
     if (arg === "--username" && i + 1 < argv.length) {
@@ -24,25 +41,30 @@ function parseArgs(argv: string[]): ParsedArgs {
       parsed.token = argv[++i];
     } else if (arg === "--dark") {
       parsed.dark = true;
-    } else if (arg === "--enable-empty-days") {
-      parsed.enableEmptyDays = true;
+    } else if (arg === "--light") {
+      parsed.light = true;
+    } else if (arg === "--no-ghost-bricks") {
+      parsed.enableGhostBricks = false;
+    } else if (arg === "--output-path") {
+      parsed.outputPath = argv[++i];
     }
   }
   return parsed;
 }
 
+// Parse CLI arguments
 const cliArgs = parseArgs(process.argv.slice(2));
 
+// Build options from CLI args and environment variables
 const options = {
-  username:
-    cliArgs.username ||
-    getInput("GITHUB_USERNAME", process.env.GITHUB_USERNAME),
-  token: cliArgs.token || getInput("GITHUB_TOKEN", process.env.GITHUB_TOKEN),
-  dark: !!cliArgs.dark,
-  enableEmptyDays:
-    typeof cliArgs.enableEmptyDays !== "undefined"
-      ? cliArgs.enableEmptyDays
-      : !!getInput("ENABLE_EMPTY_DAYS"),
+  username: cliArgs.username || getInput("GITHUB_USERNAME"),
+  token: cliArgs.token || getInput("GITHUB_TOKEN"),
+  dark: cliArgs.dark,
+  light: cliArgs.light,
+  enableGhostBricks:
+    cliArgs.enableGhostBricks ??
+    getInput("ENABLE_GHOST_BRICKS", "true") === "true",
+  path: cliArgs.outputPath || getInput("OUTPUT_PATH", "output"),
 };
 
 if (!options.username || !options.token) {
@@ -54,48 +76,49 @@ if (!options.username || !options.token) {
   process.exit(1);
 }
 
-const outDir = path.join(process.cwd(), "output");
+// Default options
+if (!options.dark && !options.light) {
+  options.light = true; // Default to light mode if neither is specified
+
+  // Enable both for GitHub actions by default
+  if (process.env.GITHUB_ACTIONS === "true") {
+    options.dark = true;
+  }
+}
+
+// Output directory
+let outDir = options.path;
+if (!path.isAbsolute(outDir)) {
+  outDir = path.resolve(process.cwd(), outDir);
+}
+
+// Create directory
 if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, { recursive: true });
 }
 
-const ignoreEmptyDays = !options.enableEmptyDays;
-const isGitHubActions = process.env.GITHUB_ACTIONS === "true";
+// Variants to build
+const variants = [];
+if (options.light) {
+  variants.push({ darkMode: false, name: "light" });
+}
+if (options.dark) {
+  variants.push({ darkMode: true, name: "dark" });
+}
 
-if (isGitHubActions) {
-  const variants = [
-    { darkMode: false, name: "light" },
-    { darkMode: true, name: "dark" },
-  ];
-
-  Promise.all(
-    variants.map((variant) =>
-      generateSVG(options.username!, options.token!, {
-        darkMode: variant.darkMode,
-        ignoreEmptyDays: ignoreEmptyDays,
-      }).then((svg) => {
-        const outputFile = path.join(outDir, `${variant.name}.svg`);
-        fs.writeFileSync(outputFile, svg);
-        console.log(`SVG generated: ${outputFile}`);
-      }),
-    ),
-  ).catch((err) => {
-    console.error("Failed to generate SVG(s):", err);
-    process.exit(1);
-  });
-} else {
-  const darkMode = !!options.dark;
-  const outputFile = path.join(outDir, `${darkMode ? "dark" : "light"}.svg`);
-  generateSVG(options.username!, options.token!, {
-    darkMode: darkMode,
-    ignoreEmptyDays: ignoreEmptyDays,
-  })
-    .then((svg) => {
+// Build images
+Promise.all(
+  variants.map((variant) =>
+    generateSVG(options.username!, options.token!, {
+      darkMode: variant.darkMode,
+      enableGhostBricks: options.enableGhostBricks,
+    }).then((svg) => {
+      const outputFile = path.join(outDir, `${variant.name}.svg`);
       fs.writeFileSync(outputFile, svg);
       console.log(`SVG generated: ${outputFile}`);
-    })
-    .catch((err) => {
-      console.error("Failed to generate SVG:", err);
-      process.exit(1);
-    });
-}
+    }),
+  ),
+).catch((err) => {
+  console.error("Failed to generate SVG(s):", err);
+  process.exit(1);
+});

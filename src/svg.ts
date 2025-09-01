@@ -153,7 +153,7 @@ function circleRectCollision(
  * @param canvasWidth - The width of the canvas.
  * @param canvasHeight - The height of the canvas.
  * @param paddleY - The vertical position of the paddle.
- * @param ignoreEmptyDays - If true, only bricks with commits are broken, others remain only visual.
+ * @param enableGhostBricks - If true, only bricks with commits are broken, others remain only visual.
  * @returns An array of frame states representing the simulation history.
  */
 function simulate(
@@ -161,7 +161,7 @@ function simulate(
   canvasWidth: number,
   canvasHeight: number,
   paddleY: number,
-  ignoreEmptyDays: boolean,
+  enableGhostBricks: boolean,
 ): FrameState[] {
   // Initialize ball position at the center bottom of the canvas
   let ballX = canvasWidth / 2;
@@ -186,7 +186,7 @@ function simulate(
   while (
     simulatedBricks.some(
       (brick) =>
-        brick.status === "visible" && (!ignoreEmptyDays || brick.hasCommit),
+        brick.status === "visible" && (!enableGhostBricks || brick.hasCommit),
     ) &&
     currentFrame < MAX_FRAMES
   ) {
@@ -230,7 +230,7 @@ function simulate(
       const brick = simulatedBricks[i];
       if (
         brick.status === "visible" &&
-        (!ignoreEmptyDays || brick.hasCommit) &&
+        (!enableGhostBricks || brick.hasCommit) &&
         circleRectCollision(
           ballX,
           ballY,
@@ -303,15 +303,15 @@ function minifySVG(svg: string): string {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param options - Options object (darkMode?: boolean, ignoreEmptyDays?: boolean)
+ * @param options - Options object (darkMode?: boolean, enableGhostBricks?: boolean)
  * @returns A promise that resolves to the minified SVG string.
  */
 export async function generateSVG(
   username: string,
   githubToken: string,
-  options: { darkMode?: boolean; ignoreEmptyDays?: boolean } = {},
+  options: { darkMode?: boolean; enableGhostBricks?: boolean } = {},
 ): Promise<string> {
-  const { darkMode = false, ignoreEmptyDays = true } = options;
+  const { darkMode = false, enableGhostBricks = true } = options;
   const colorDays = await fetchGithubContributionsGraphQL(
     username,
     githubToken,
@@ -377,7 +377,7 @@ export async function generateSVG(
     canvasWidth,
     canvasHeight,
     paddleY,
-    ignoreEmptyDays,
+    enableGhostBricks,
   );
   const animationDuration = states.length * SECONDS_PER_FRAME * ANIMATE_STEP;
 
@@ -427,8 +427,8 @@ export async function generateSVG(
   const brickUses = bricks
     .map((brick, i) => {
       const anim = brickAnimData[i];
-      // For ignoreEmptyDays=true: switch color to c0 when brick is broken
-      if (ignoreEmptyDays && anim.animate) {
+      // For enableGhostBricks=true: switch color to c0 when brick is broken
+      if (enableGhostBricks && anim.animate) {
         const t = anim.firstZero / (states.length - 1);
         // Animate fill from original color to c0
         const origColor =
@@ -443,7 +443,7 @@ export async function generateSVG(
           repeatCount="indefinite"/>
       </use>`;
       }
-      // For ignoreEmptyDays=false: hide the brick when broken
+      // For enableGhostBricks=false: hide the brick when broken
       if (anim.animate) {
         return `<use href="#brick" x="${brick.x}" y="${brick.y}" class="${brick.colorClass}">
         <animate attributeName="opacity"
