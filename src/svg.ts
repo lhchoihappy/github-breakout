@@ -323,7 +323,7 @@ export async function generateSVG(
     enableGhostBricks = true,
     paddleColor = "#1F6FEB",
     ballColor = "#1F6FEB",
-    bricksColors = "light",
+    bricksColors = "github_light",
   } = options;
   const colorDays = await fetchGithubContributionsGraphQL(
     username,
