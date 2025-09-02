@@ -24,22 +24,21 @@ const ANIMATE_STEP = 1; // Step size for animation frames
 const SECONDS_PER_FRAME = 1 / 30; // Duration of each frame in seconds (30 FPS)
 const MAX_FRAMES = 30000; // Maximum number of frames to simulate
 const BALL_SPEED = 10; // Speed of the ball in pixels per frame
-// GitHub contribution graph green palettes
-const GITHUB_GREENS_DARK = [
+// GitHub colors
+const GITHUB_LIGHT = [
+    "#ebedf0",
+    "#9be9a8",
+    "#40c463",
+    "#30a14e",
+    "#216e39",
+];
+const GITHUB_DARK = [
     "#151B23",
     "#033A16",
     "#196C2E",
     "#2EA043",
     "#56D364",
 ];
-// Map from light palette color to dark palette color (the GraphQL API returns light colors and does not handle dark mode)
-const LIGHT_TO_DARK_COLOR_MAP = {
-    "#ebedf0": "#151B23",
-    "#9be9a8": "#033A16",
-    "#40c463": "#196C2E",
-    "#30a14e": "#2EA043",
-    "#216e39": "#56D364",
-};
 /**
  * Fetches the GitHub contributions calendar for a user using the GraphQL API.
  *
@@ -225,12 +224,12 @@ function minifySVG(svg) {
  *
  * @param username - The GitHub username to fetch contributions for.
  * @param githubToken - The GitHub token used for authentication.
- * @param options - Options object (darkMode?: boolean, enableGhostBricks?: boolean)
+ * @param options - Options object
  * @returns A promise that resolves to the minified SVG string.
  */
 function generateSVG(username_1, githubToken_1) {
     return __awaiter(this, arguments, void 0, function* (username, githubToken, options = {}) {
-        const { darkMode = false, enableGhostBricks = true } = options;
+        const { enableGhostBricks = true, paddleColor = "#1F6FEB", ballColor = "#1F6FEB", bricksColors = "light", } = options;
         const colorDays = yield fetchGithubContributionsGraphQL(username, githubToken);
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colorDays.length;
@@ -244,15 +243,17 @@ function generateSVG(username_1, githubToken_1) {
         // Calculate the total canvas height
         // The ball and paddle should have enough space at the bottom (add a little margin)
         const canvasHeight = paddleY + PADDLE_HEIGHT + PADDING;
-        // Pick palette and setup color class mapping
-        const colorPalette = darkMode
-            ? GITHUB_GREENS_DARK
-            : Object.keys(LIGHT_TO_DARK_COLOR_MAP);
-        // Map each color to a class: c0, c1, ...
-        const colorToClass = (color) => {
-            const idx = colorPalette.findIndex((c) => c.toLowerCase() === color.toLowerCase());
-            return idx !== -1 ? `c${idx}` : "c0";
-        };
+        // Pick palette
+        let colorPalette = GITHUB_LIGHT;
+        if (bricksColors === "github_light") {
+            colorPalette = GITHUB_LIGHT;
+        }
+        else if (bricksColors === "github_dark") {
+            colorPalette = GITHUB_DARK;
+        }
+        else if (Array.isArray(bricksColors) && bricksColors.length === 5) {
+            colorPalette = bricksColors;
+        }
         // Build bricks with colorClass, skip missing days (null color)
         const bricks = [];
         for (let c = 0; c < brickColumnCount; c++) {
@@ -260,16 +261,11 @@ function generateSVG(username_1, githubToken_1) {
                 const day = (colorDays[c] && colorDays[c][r]) || null;
                 if (!day)
                     continue; // skip bricks for missing days
-                let dayColor = day.color;
-                if (darkMode) {
-                    dayColor =
-                        LIGHT_TO_DARK_COLOR_MAP[dayColor.toLowerCase()] ||
-                            GITHUB_GREENS_DARK[0];
-                }
+                let dayColorIndex = GITHUB_LIGHT.indexOf(day.color.toLowerCase());
                 bricks.push({
                     x: c * (BRICK_SIZE + BRICK_GAP) + PADDING,
                     y: r * (BRICK_SIZE + BRICK_GAP) + PADDING,
-                    colorClass: colorToClass(dayColor),
+                    colorClass: dayColorIndex !== -1 ? `c${dayColorIndex}` : "c0",
                     status: "visible",
                     hasCommit: day.contributionCount > 0,
                 });
@@ -353,12 +349,12 @@ function generateSVG(username_1, githubToken_1) {
             .join("");
         // Paddle is always at same y, so use a transform for y, animate x only
         const paddleRect = `<g transform="translate(0,${paddleY})">
-    <rect y="0" width="${PADDLE_WIDTH}" height="${PADDLE_HEIGHT}" rx="${PADDLE_RADIUS}" fill="#1F6FEB">
+    <rect y="0" width="${PADDLE_WIDTH}" height="${PADDLE_HEIGHT}" rx="${PADDLE_RADIUS}" fill="${paddleColor}">
       <animate attributeName="x" values="${getAnimValues(paddleX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
     </rect>
   </g>`;
         // Ball animate cx/cy
-        const ballCircle = `<circle r="${BALL_RADIUS}" fill="#1F6FEB">
+        const ballCircle = `<circle r="${BALL_RADIUS}" fill="${ballColor}">
     <animate attributeName="cx" values="${getAnimValues(ballX)}" dur="${animationDuration}s" repeatCount="indefinite"/>
     <animate attributeName="cy" values="${getAnimValues(ballY)}" dur="${animationDuration}s" repeatCount="indefinite"/>
   </circle>`;

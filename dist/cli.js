@@ -32,7 +32,7 @@ var __importStar = (this && this.__importStar) || (function () {
         return result;
     };
 })();
-var _a;
+var _a, _b, _c;
 Object.defineProperty(exports, "__esModule", { value: true });
 const svg_1 = require("./svg");
 const fs = __importStar(require("fs"));
@@ -40,13 +40,12 @@ const path = __importStar(require("path"));
 /**
  * Get an input value from environment variables or from GitHub Actions inputs
  * @param name - The name of the input variable.
- * @param fallback - The fallback value if the input is not set.
- * @returns The input value as a string
+ * @returns The input value as a string or undefined if not found.
  */
-function getInput(name, fallback = "") {
+function getInput(name) {
     var _a, _b;
     const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
-    return (_b = (_a = process.env[envName]) !== null && _a !== void 0 ? _a : process.env[name]) !== null && _b !== void 0 ? _b : fallback;
+    return (_b = (_a = process.env[envName]) !== null && _a !== void 0 ? _a : process.env[name]) !== null && _b !== void 0 ? _b : undefined;
 }
 /**
  * Parse command-line arguments into an object.
@@ -78,19 +77,38 @@ function parseArgs(argv) {
         else if (arg === "--output-path") {
             parsed.outputPath = argv[++i];
         }
+        else if (arg === "--paddle-color") {
+            parsed.paddleColor = argv[++i];
+        }
+        else if (arg === "--ball-color") {
+            parsed.ballColor = argv[++i];
+        }
+        else if (arg === "--bricks-colors") {
+            const colors = argv[++i].split(",");
+            if (colors.length === 5) {
+                parsed.bricksColors = colors;
+            }
+        }
     }
     return parsed;
 }
 // Parse CLI arguments
 const cliArgs = parseArgs(process.argv.slice(2));
 // Build options from CLI args and environment variables
+const bricksColorsInput = ((_a = getInput("BRICKS_COLORS")) !== null && _a !== void 0 ? _a : "").split(",");
+const bricksColorsFromInput = bricksColorsInput.length === 5
+    ? bricksColorsInput
+    : undefined;
 const options = {
     username: cliArgs.username || getInput("GITHUB_USERNAME"),
     token: cliArgs.token || getInput("GITHUB_TOKEN"),
     dark: cliArgs.dark,
     light: cliArgs.light,
-    enableGhostBricks: (_a = cliArgs.enableGhostBricks) !== null && _a !== void 0 ? _a : getInput("ENABLE_GHOST_BRICKS", "true") === "true",
-    path: cliArgs.outputPath || getInput("OUTPUT_PATH", "output"),
+    enableGhostBricks: (_b = cliArgs.enableGhostBricks) !== null && _b !== void 0 ? _b : ((_c = getInput("ENABLE_GHOST_BRICKS")) !== null && _c !== void 0 ? _c : "true") === "true",
+    paddleColor: cliArgs.paddleColor || getInput("PADDLE_COLOR"),
+    ballColor: cliArgs.ballColor || getInput("BALL_COLOR"),
+    bricksColors: cliArgs.bricksColors || bricksColorsFromInput,
+    path: cliArgs.outputPath || getInput("OUTPUT_PATH") || "output",
 };
 if (!options.username || !options.token) {
     console.error("Error: Both a GitHub username and token are required.\n" +
@@ -99,7 +117,11 @@ if (!options.username || !options.token) {
     process.exit(1);
 }
 // Default options
-if (!options.dark && !options.light) {
+if (!options.dark &&
+    !options.light &&
+    !options.bricksColors &&
+    !options.paddleColor &&
+    !options.ballColor) {
     options.light = true; // Default to light mode if neither is specified
     // Enable both for GitHub actions by default
     if (process.env.GITHUB_ACTIONS === "true") {
@@ -117,16 +139,24 @@ if (!fs.existsSync(outDir)) {
 }
 // Variants to build
 const variants = [];
+if (options.paddleColor || options.ballColor || options.bricksColors) {
+    variants.push({
+        bricksColors: options.bricksColors || "github_light",
+        name: "custom",
+    });
+}
 if (options.light) {
-    variants.push({ darkMode: false, name: "light" });
+    variants.push({ bricksColors: "github_light", name: "light" });
 }
 if (options.dark) {
-    variants.push({ darkMode: true, name: "dark" });
+    variants.push({ bricksColors: "github_dark", name: "dark" });
 }
 // Build images
 Promise.all(variants.map((variant) => (0, svg_1.generateSVG)(options.username, options.token, {
-    darkMode: variant.darkMode,
     enableGhostBricks: options.enableGhostBricks,
+    paddleColor: variant.name === "custom" ? options.paddleColor : undefined,
+    ballColor: variant.name === "custom" ? options.ballColor : undefined,
+    bricksColors: variant.bricksColors,
 }).then((svg) => {
     const outputFile = path.join(outDir, `${variant.name}.svg`);
     fs.writeFileSync(outputFile, svg);
