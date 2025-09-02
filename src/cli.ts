@@ -1,4 +1,4 @@
-import { generateSVG } from "./svg";
+import { ColorPalette, Options, generateSVG } from "./svg";
 import * as fs from "fs";
 import * as path from "path";
 
@@ -9,18 +9,20 @@ interface ParsedArgs {
   light?: boolean; // Generate light mode SVG
   dark?: boolean; // Generate dark mode SVG
   enableGhostBricks?: boolean; // Ghost bricks for days without contribution
+  paddleColor?: string; // Paddle color
+  ballColor?: string; // Ball color
+  bricksColors?: [string, string, string, string, string]; // Bricks colors
   outputPath?: string; // Output path
 }
 
 /**
  * Get an input value from environment variables or from GitHub Actions inputs
  * @param name - The name of the input variable.
- * @param fallback - The fallback value if the input is not set.
- * @returns The input value as a string
+ * @returns The input value as a string or undefined if not found.
  */
-function getInput(name: string, fallback = ""): string {
+function getInput(name: string): string | undefined {
   const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
-  return process.env[envName] ?? process.env[name] ?? fallback;
+  return process.env[envName] ?? process.env[name] ?? undefined;
 }
 
 /**
@@ -47,6 +49,21 @@ function parseArgs(argv: string[]): ParsedArgs {
       parsed.enableGhostBricks = false;
     } else if (arg === "--output-path") {
       parsed.outputPath = argv[++i];
+    } else if (arg === "--paddle-color") {
+      parsed.paddleColor = argv[++i];
+    } else if (arg === "--ball-color") {
+      parsed.ballColor = argv[++i];
+    } else if (arg === "--bricks-colors") {
+      const colors = argv[++i].split(",");
+      if (colors.length === 5) {
+        parsed.bricksColors = colors as [
+          string,
+          string,
+          string,
+          string,
+          string,
+        ];
+      }
     }
   }
   return parsed;
@@ -56,6 +73,12 @@ function parseArgs(argv: string[]): ParsedArgs {
 const cliArgs = parseArgs(process.argv.slice(2));
 
 // Build options from CLI args and environment variables
+const bricksColorsInput = (getInput("BRICKS_COLORS") ?? "").split(",");
+const bricksColorsFromInput =
+  bricksColorsInput.length === 5
+    ? (bricksColorsInput as [string, string, string, string, string])
+    : undefined;
+
 const options = {
   username: cliArgs.username || getInput("GITHUB_USERNAME"),
   token: cliArgs.token || getInput("GITHUB_TOKEN"),
@@ -63,8 +86,11 @@ const options = {
   light: cliArgs.light,
   enableGhostBricks:
     cliArgs.enableGhostBricks ??
-    getInput("ENABLE_GHOST_BRICKS", "true") === "true",
-  path: cliArgs.outputPath || getInput("OUTPUT_PATH", "output"),
+    (getInput("ENABLE_GHOST_BRICKS") ?? "true") === "true",
+  paddleColor: cliArgs.paddleColor || getInput("PADDLE_COLOR"),
+  ballColor: cliArgs.ballColor || getInput("BALL_COLOR"),
+  bricksColors: cliArgs.bricksColors || bricksColorsFromInput,
+  path: cliArgs.outputPath || getInput("OUTPUT_PATH") || "output",
 };
 
 if (!options.username || !options.token) {
@@ -77,7 +103,13 @@ if (!options.username || !options.token) {
 }
 
 // Default options
-if (!options.dark && !options.light) {
+if (
+  !options.dark &&
+  !options.light &&
+  !options.bricksColors &&
+  !options.paddleColor &&
+  !options.ballColor
+) {
   options.light = true; // Default to light mode if neither is specified
 
   // Enable both for GitHub actions by default
@@ -98,20 +130,31 @@ if (!fs.existsSync(outDir)) {
 }
 
 // Variants to build
-const variants = [];
+const variants: {
+  bricksColors: Options["bricksColors"];
+  name: string;
+}[] = [];
+if (options.paddleColor || options.ballColor || options.bricksColors) {
+  variants.push({
+    bricksColors: (options.bricksColors as ColorPalette) || "github_light",
+    name: "custom",
+  });
+}
 if (options.light) {
-  variants.push({ darkMode: false, name: "light" });
+  variants.push({ bricksColors: "github_light", name: "light" });
 }
 if (options.dark) {
-  variants.push({ darkMode: true, name: "dark" });
+  variants.push({ bricksColors: "github_dark", name: "dark" });
 }
 
 // Build images
 Promise.all(
   variants.map((variant) =>
     generateSVG(options.username!, options.token!, {
-      darkMode: variant.darkMode,
       enableGhostBricks: options.enableGhostBricks,
+      paddleColor: variant.name === "custom" ? options.paddleColor : undefined,
+      ballColor: variant.name === "custom" ? options.ballColor : undefined,
+      bricksColors: variant.bricksColors,
     }).then((svg) => {
       const outputFile = path.join(outDir, `${variant.name}.svg`);
       fs.writeFileSync(outputFile, svg);

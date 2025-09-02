@@ -20,6 +20,15 @@ inputs:
   output_path:
     description: "Output path for SVGs"
     required: false
+  paddle_color:
+    description: "Paddle color"
+    required: false
+  ball_color:
+    description: "Ball color"
+    required: false
+  bricks_colors:
+    description: "Bricks colors"
+    required: false
 
 runs:
   using: node20
