@@ -32,6 +32,8 @@ jobs:
         run: |
           VERSION=${{ github.event.inputs.version }}
 
+          git config --global user.email "bot@cyprien.io"
+          git config --global user.name "release bot"
           git add package.json dist 
           git commit -m "$VERSION"
           git tag v$VERSION
