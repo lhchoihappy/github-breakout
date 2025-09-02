@@ -18,7 +18,17 @@ This project grabs your contribution graph through the GitHub API and generates 
 
 You can also customize colors:
 
-![custom color palette](./example/custom.svg)
+<picture>
+  <source
+    media="(prefers-color-scheme: dark)"
+    srcset="example/custom-dark.svg"
+  />
+  <source
+    media="(prefers-color-scheme: light)"
+    srcset="example/custom-light.svg"
+  />
+  <img alt="Breakout Game" src="example/custom-light.svg" />
+</picture>
 
 You can also disable ghost bricks for days without activity, so all days count as a brick:
 
