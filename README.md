@@ -54,11 +54,11 @@ The action generates dark, light and optionally custom SVGs, and has these input
 
 - github_username (required): GitHub username
 - github_token: GitHub token used to fetch the contributions. Defaults to the action token if empty.
-- enable_ghost_bricks: Enable ghost bricks for days without contribution
+- enable_ghost_bricks: Enable ghost bricks for days without contribution (default to true)
 - output_path: Output path for SVGs (default is `./output/`)
-- paddle_color: Paddle color for custom.svg
-- ball_color: Ball color for custom.svg
-- bricks_colors: Bricks colors as a list of colors separated by commas for custom.svg
+- paddle_color: Paddle color for `custom.svg`
+- ball_color: Ball color for `custom.svg`
+- bricks_colors: Bricks colors as a list of colors separated by commas for `custom.svg`
 
 This example GitHub workflow generates the SVGs every day and commits them to your repository:
 
@@ -108,7 +108,7 @@ jobs:
           git push --force origin github-breakout
 ```
 
-Then retrieve the image URLs from the github-breakout branch and add them to your README.md:
+Then retrieve the SVGs URLs from the github-breakout branch and add them to your README.md:
 
 ```html
 <picture>
