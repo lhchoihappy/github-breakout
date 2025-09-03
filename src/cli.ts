@@ -22,7 +22,7 @@ interface ParsedArgs {
  */
 function getInput(name: string): string | undefined {
   const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
-  return process.env[envName] ?? process.env[name] ?? undefined;
+  return process.env[envName] || process.env[name] || undefined;
 }
 
 /**
