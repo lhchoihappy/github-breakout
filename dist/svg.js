@@ -229,7 +229,7 @@ function minifySVG(svg) {
  */
 function generateSVG(username_1, githubToken_1) {
     return __awaiter(this, arguments, void 0, function* (username, githubToken, options = {}) {
-        const { enableGhostBricks = true, paddleColor = "#1F6FEB", ballColor = "#1F6FEB", bricksColors = "light", } = options;
+        const { enableGhostBricks = true, paddleColor = "#1F6FEB", ballColor = "#1F6FEB", bricksColors = "github_light", } = options;
         const colorDays = yield fetchGithubContributionsGraphQL(username, githubToken);
         // The number of columns (weeks) is determined by the API response
         const brickColumnCount = colorDays.length;

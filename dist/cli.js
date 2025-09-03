@@ -43,9 +43,8 @@ const path = __importStar(require("path"));
  * @returns The input value as a string or undefined if not found.
  */
 function getInput(name) {
-    var _a, _b;
     const envName = `INPUT_${name.replace(/-/g, "_").toUpperCase()}`;
-    return (_b = (_a = process.env[envName]) !== null && _a !== void 0 ? _a : process.env[name]) !== null && _b !== void 0 ? _b : undefined;
+    return process.env[envName] || process.env[name] || undefined;
 }
 /**
  * Parse command-line arguments into an object.
